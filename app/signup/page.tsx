@@ -1,25 +1,84 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type React from "react"
+import { useRouter } from "next/navigation"
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/auth/auth-layout"
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react"
+import { AuthAPI } from "@/lib/api/auth"
+import { TokenManager } from "@/lib/auth/tokens"
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: ""
+  })
+
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  const router = useRouter()
+
+    // Check if user is already authenticated
+    useEffect(() => {
+      if (TokenManager.isAuthenticated()) {
+        router.push('/dashboard')
+      } else {
+        setIsCheckingAuth(false)
+      }
+    }, [router])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+    setError(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long")
+      return
+    }
+
     setIsLoading(true)
-    // Simulate signup process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
+
+    try {
+      const response = await AuthAPI.signup({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName
+      })
+
+      // Store tokens
+      TokenManager.setTokens(response.access_token, response.refresh_token)
+
+      // Redirect to dashboard or home
+      router.push('/dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Signup failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -28,17 +87,28 @@ export default function SignupPage() {
       subtitle="Join thousands of creators and start your AI-powered idea journey"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Error message */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Name */}
         <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="fullName">Full Name</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              id="name"
+              id="fullName"
+              name="fullName"
               type="text"
               placeholder="Enter your full name"
               className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.fullName}
+              onChange={handleChange}
               required
+              disabled={isLoading}
             />
           </div>
         </div>
@@ -50,10 +120,14 @@ export default function SignupPage() {
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="Enter your email"
               className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.email}
+              onChange={handleChange}
               required
+              disabled={isLoading}
             />
           </div>
         </div>
@@ -65,15 +139,20 @@ export default function SignupPage() {
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Create a password"
+              placeholder="Create a password (min 8 characters)"
               className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.password}
+              onChange={handleChange}
               required
+              disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isLoading}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -87,15 +166,20 @@ export default function SignupPage() {
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="confirmPassword"
+              name="confirmPassword"
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm your password"
               className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.confirmPassword}
+              onChange={handleChange}
               required
+              disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isLoading}
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -139,6 +223,7 @@ export default function SignupPage() {
           type="button"
           variant="outline"
           className="w-full glass hover:glow-secondary transition-all duration-300 bg-transparent"
+          disabled={isLoading}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path

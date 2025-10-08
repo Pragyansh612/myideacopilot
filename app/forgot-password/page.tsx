@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/auth/auth-layout"
 import { Mail, ArrowLeft } from "lucide-react"
 
 export default function ForgotPasswordPage() {

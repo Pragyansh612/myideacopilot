@@ -1,29 +1,129 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type React from "react"
-
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AuthLayout } from "@/components/auth-layout"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
+import { AuthLayout } from "@/components/auth/auth-layout"
+import { Eye, EyeOff, Mail, Lock, User } from "lucide-react"
+import { AuthAPI } from "@/lib/api/auth"
+import { TokenManager } from "@/lib/auth/tokens"
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: ""
+  })
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  const router = useRouter()
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (TokenManager.isAuthenticated()) {
+      router.push('/dashboard')
+    } else {
+      setIsCheckingAuth(false)
+    }
+  }, [router])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+    setError(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long")
+      return
+    }
+
     setIsLoading(true)
-    // Simulate login process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
+
+    try {
+      const response = await AuthAPI.signup({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName
+      })
+
+      // Store tokens
+      TokenManager.setTokens(response.access_token, response.refresh_token)
+
+      // Redirect to dashboard or home
+      router.push('/dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Signup failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to your account to continue your creative journey">
+    <AuthLayout
+      title="Create your account"
+      subtitle="Join thousands of creators and start your AI-powered idea journey"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Error message */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Name */}
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="fullName"
+              name="fullName"
+              type="text"
+              placeholder="Enter your full name"
+              className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.fullName}
+              onChange={handleChange}
+              required
+              disabled={isLoading}
+              autoComplete="name"
+            />
+          </div>
+        </div>
+
         {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
@@ -31,10 +131,15 @@ export default function LoginPage() {
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="Enter your email"
               className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.email}
+              onChange={handleChange}
               required
+              disabled={isLoading}
+              autoComplete="email"
             />
           </div>
         </div>
@@ -46,26 +151,66 @@ export default function LoginPage() {
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
+              placeholder="Create a password (min 8 characters)"
               className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.password}
+              onChange={handleChange}
               required
+              disabled={isLoading}
+              autoComplete="new-password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isLoading}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Forgot Password */}
-        <div className="text-right">
-          <Link href="/forgot-password" className="text-sm text-primary hover:text-primary/80 transition-colors">
-            Forgot password?
+        {/* Confirm Password */}
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirm your password"
+              className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              disabled={isLoading}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isLoading}
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Terms */}
+        <div className="text-xs text-muted-foreground text-pretty">
+          By creating an account, you agree to our{" "}
+          <Link href="/terms" className="text-primary hover:text-primary/80 transition-colors">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-primary hover:text-primary/80 transition-colors">
+            Privacy Policy
           </Link>
+          .
         </div>
 
         {/* Submit Button */}
@@ -74,7 +219,7 @@ export default function LoginPage() {
           className="w-full gradient-primary hover:glow-primary transition-all duration-300"
           disabled={isLoading}
         >
-          {isLoading ? "Signing in..." : "Sign In"}
+          {isLoading ? "Creating account..." : "Create Account"}
         </Button>
 
         {/* Divider */}
@@ -87,11 +232,12 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Google Login */}
+        {/* Google Signup */}
         <Button
           type="button"
           variant="outline"
           className="w-full glass hover:glow-secondary transition-all duration-300 bg-transparent"
+          disabled={isLoading}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path
@@ -111,15 +257,15 @@ export default function LoginPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Continue with Google
+          Sign up with Google
         </Button>
       </form>
 
-      {/* Sign up link */}
+      {/* Sign in link */}
       <div className="text-center text-sm">
-        <span className="text-muted-foreground">Don't have an account? </span>
-        <Link href="/signup" className="text-primary hover:text-primary/80 transition-colors font-medium">
-          Sign up
+        <span className="text-muted-foreground">Already have an account? </span>
+        <Link href="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
+          Sign in
         </Link>
       </div>
     </AuthLayout>
