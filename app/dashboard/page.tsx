@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { AppLayout } from "@/components/app-layout"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,13 +67,13 @@ const stats = [
 ]
 
 export default function DashboardPage() {
-  const [hasIdeas, setHasIdeas] = useState(true) // Set to true to show normal dashboard
+  const [hasIdeas, setHasIdeas] = useState(true)
 
   return (
-    <AppLayout>
+    <>
       <PageHeader title="Welcome back, Alex!" description="Ready to capture your next big idea?" />
 
-      <div className="p-6 space-y-8">
+      <div className="p-4 md:p-6 space-y-6 md:space-y-8">
         {/* Quick Actions */}
         <section>
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
@@ -130,7 +129,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Two Column Layout for Stats and Achievements */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {/* Stats Overview */}
           <section className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Your Progress</h2>
@@ -222,7 +221,7 @@ export default function DashboardPage() {
                         </CardTitle>
                         <CardDescription className="text-sm mt-1">{idea.description}</CardDescription>
                       </div>
-                      <div className="ml-4 text-xs text-muted-foreground flex items-center">
+                      <div className="ml-4 text-xs text-muted-foreground flex items-center whitespace-nowrap">
                         <Calendar className="w-3 h-3 mr-1" />
                         {new Date(idea.date).toLocaleDateString()}
                       </div>
@@ -240,7 +239,7 @@ export default function DashboardPage() {
                           </span>
                         ))}
                       </div>
-                      <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
+                      <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full whitespace-nowrap">
                         {idea.category}
                       </span>
                     </div>
@@ -260,6 +259,6 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
-    </AppLayout>
+    </>
   )
 }

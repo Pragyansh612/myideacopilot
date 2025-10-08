@@ -1,30 +1,30 @@
 "use client"
 import { useState, useEffect } from "react"
 import type React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthLayout } from "@/components/auth/auth-layout"
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock } from "lucide-react"
 import { AuthAPI } from "@/lib/api/auth"
 import { TokenManager } from "@/lib/auth/tokens"
 
-export default function SignupPage() {
+export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    fullName: "",
     email: "",
-    password: "",
-    confirmPassword: ""
+    password: ""
   })
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -46,34 +46,21 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
-      return
-    }
-
     setIsLoading(true)
 
     try {
-      const response = await AuthAPI.signup({
+      const response = await AuthAPI.login({
         email: formData.email,
-        password: formData.password,
-        full_name: formData.fullName
+        password: formData.password
       })
 
       // Store tokens
       TokenManager.setTokens(response.access_token, response.refresh_token)
 
-      // Redirect to dashboard or home
-      router.push('/dashboard')
+      // Redirect to intended destination or dashboard
+      router.push(redirectTo)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed. Please try again.")
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -92,10 +79,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthLayout
-      title="Create your account"
-      subtitle="Join thousands of creators and start your AI-powered idea journey"
-    >
+    <AuthLayout title="Welcome back" subtitle="Sign in to your account to continue your creative journey">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Error message */}
         {error && (
@@ -104,25 +88,12 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* Name */}
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name</Label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              placeholder="Enter your full name"
-              className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-              autoComplete="name"
-            />
+        {/* Redirect notification */}
+        {searchParams.get('redirect') && (
+          <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-lg text-sm">
+            Please sign in to continue
           </div>
-        </div>
+        )}
 
         {/* Email */}
         <div className="space-y-2">
@@ -153,13 +124,13 @@ export default function SignupPage() {
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Create a password (min 8 characters)"
+              placeholder="Enter your password"
               className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
               value={formData.password}
               onChange={handleChange}
               required
               disabled={isLoading}
-              autoComplete="new-password"
+              autoComplete="current-password"
             />
             <button
               type="button"
@@ -172,45 +143,11 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* Confirm Password */}
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
-              placeholder="Confirm your password"
-              className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              disabled={isLoading}
-            >
-              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Terms */}
-        <div className="text-xs text-muted-foreground text-pretty">
-          By creating an account, you agree to our{" "}
-          <Link href="/terms" className="text-primary hover:text-primary/80 transition-colors">
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-primary hover:text-primary/80 transition-colors">
-            Privacy Policy
+        {/* Forgot Password */}
+        <div className="text-right">
+          <Link href="/forgot-password" className="text-sm text-primary hover:text-primary/80 transition-colors">
+            Forgot password?
           </Link>
-          .
         </div>
 
         {/* Submit Button */}
@@ -219,7 +156,7 @@ export default function SignupPage() {
           className="w-full gradient-primary hover:glow-primary transition-all duration-300"
           disabled={isLoading}
         >
-          {isLoading ? "Creating account..." : "Create Account"}
+          {isLoading ? "Signing in..." : "Sign In"}
         </Button>
 
         {/* Divider */}
@@ -232,7 +169,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* Google Signup */}
+        {/* Google Login */}
         <Button
           type="button"
           variant="outline"
@@ -257,15 +194,15 @@ export default function SignupPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Sign up with Google
+          Continue with Google
         </Button>
       </form>
 
-      {/* Sign in link */}
+      {/* Sign up link */}
       <div className="text-center text-sm">
-        <span className="text-muted-foreground">Already have an account? </span>
-        <Link href="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
-          Sign in
+        <span className="text-muted-foreground">Don't have an account? </span>
+        <Link href="/signup" className="text-primary hover:text-primary/80 transition-colors font-medium">
+          Sign up
         </Link>
       </div>
     </AuthLayout>

@@ -29,13 +29,13 @@ export default function SignupPage() {
   const router = useRouter()
 
     // Check if user is already authenticated
-    useEffect(() => {
-      if (TokenManager.isAuthenticated()) {
-        router.push('/dashboard')
-      } else {
-        setIsCheckingAuth(false)
-      }
-    }, [router])
+  useEffect(() => {
+    if (TokenManager.isAuthenticated()) {
+      router.push('/dashboard')
+    } else {
+      setIsCheckingAuth(false)
+    }
+  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
