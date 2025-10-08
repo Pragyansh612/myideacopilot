@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/app-layout"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,38 +64,36 @@ export default function NewIdeaPage() {
     if (!title.trim()) return
 
     setIsSaving(true)
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // In a real app, you would save to your backend here
     console.log("Saving idea:", { title, description, category, tags })
 
     setIsSaving(false)
-    router.push("/ideas")
+    router.push("/dashboard/ideas")
   }
 
   const handleDiscard = () => {
     if (title || description || tags.length > 0) {
       if (confirm("Are you sure you want to discard this idea? All changes will be lost.")) {
-        router.push("/ideas")
+        router.push("/dashboard/ideas")
       }
     } else {
-      router.push("/ideas")
+      router.push("/dashboard/ideas")
     }
   }
 
   return (
-    <AppLayout>
+    <>
       <PageHeader title="Capture New Idea" description="Let your creativity flow">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleDiscard}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleDiscard} className="hover:bg-destructive/10 hover:text-destructive transition-all duration-300">
             <X className="w-4 h-4 mr-2" />
             Discard
           </Button>
           <Button
             onClick={handleSave}
             disabled={!title.trim() || isSaving}
-            className="gradient-primary hover:glow-primary"
+            className="gradient-primary hover:glow-primary transition-all duration-300"
           >
             <Save className="w-4 h-4 mr-2" />
             {isSaving ? "Saving..." : "Save Idea"}
@@ -104,11 +101,11 @@ export default function NewIdeaPage() {
         </div>
       </PageHeader>
 
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <div className="space-y-6">
           {/* Back Button */}
-          <Button variant="ghost" asChild className="mb-4">
-            <Link href="/ideas">
+          <Button variant="ghost" asChild className="mb-4 hover:bg-muted/50 transition-all duration-300">
+            <Link href="/dashboard/ideas">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Ideas
             </Link>
@@ -130,7 +127,7 @@ export default function NewIdeaPage() {
                   placeholder="What's your big idea?"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="text-lg font-medium glass border-border/50 focus:border-primary/50 focus:glow-primary"
+                  className="text-lg font-medium glass border-border/50 focus:border-primary/50 focus:glow-primary transition-all duration-300"
                 />
               </div>
 
@@ -142,7 +139,7 @@ export default function NewIdeaPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={8}
-                  className="glass border-border/50 focus:border-primary/50 focus:glow-primary resize-none"
+                  className="glass border-border/50 focus:border-primary/50 focus:glow-primary resize-none transition-all duration-300"
                 />
                 <p className="text-xs text-muted-foreground">{description.length} characters</p>
               </div>
@@ -175,7 +172,7 @@ export default function NewIdeaPage() {
                       <Badge
                         key={tag}
                         variant="secondary"
-                        className="cursor-pointer hover:bg-destructive/10 hover:text-destructive"
+                        className="cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
                       >
                         {tag}
                         <X className="w-3 h-3 ml-1" onClick={() => removeTag(tag)} />
@@ -190,8 +187,8 @@ export default function NewIdeaPage() {
                     placeholder="Add a tag..."
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && addTag(newTag)}
-                    className="glass border-border/50"
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag(newTag))}
+                    className="glass border-border/50 focus:border-primary/50 focus:glow-primary transition-all duration-300"
                   />
                   <Button variant="outline" onClick={() => addTag(newTag)} disabled={!newTag.trim()}>
                     <Plus className="w-4 h-4" />
@@ -204,14 +201,14 @@ export default function NewIdeaPage() {
                   <div className="flex flex-wrap gap-1">
                     {suggestedTags
                       .filter((tag) => !tags.includes(tag))
-                      .slice(0, 8)
+                      .slice(0, 10)
                       .map((tag) => (
                         <Button
                           key={tag}
                           variant="ghost"
                           size="sm"
                           onClick={() => addTag(tag)}
-                          className="text-xs h-6 px-2 hover:bg-primary/10 hover:text-primary"
+                          className="text-xs h-7 px-3 hover:bg-primary/10 hover:text-primary transition-all duration-300"
                         >
                           {tag}
                         </Button>
@@ -223,21 +220,21 @@ export default function NewIdeaPage() {
           </Card>
 
           {/* AI Suggestions Card */}
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all duration-300">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">Need inspiration?</span>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/copilot">Ask AI Copilot</Link>
+                <Button variant="outline" size="sm" asChild className="hover:bg-primary/10 hover:text-primary transition-all duration-300">
+                  <Link href="/dashboard/copilot">Ask AI Copilot</Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }

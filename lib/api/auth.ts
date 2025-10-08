@@ -40,7 +40,7 @@ export class AuthAPI {
   }
 
   static async login(data: LoginData): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${API_URL}/api/auth/signin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

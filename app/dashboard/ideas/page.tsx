@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { AppLayout } from "@/components/app-layout"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,115 +8,96 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/empty-state"
-import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb } from "lucide-react"
+import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { IdeaAPI, CategoryAPI, type Idea, type Category, type PriorityEnum, type StatusEnum } from "@/lib/api/idea"
+import { useRouter } from "next/navigation"
 
 export default function IdeasPage() {
-  const [hasIdeas, setHasIdeas] = useState(false) // Set to true to show ideas
+  const router = useRouter()
+  const [ideas, setIdeas] = useState<Idea[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [sortBy, setSortBy] = useState("date")
+  const [sortBy, setSortBy] = useState("created_at")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data for ideas - only show if hasIdeas is true
-  const allIdeas = [
-    {
-      id: 1,
-      title: "AI-Powered Recipe Generator",
-      description:
-        "An app that creates personalized recipes based on dietary preferences and available ingredients. Users can input what they have in their fridge and get creative meal suggestions.",
-      tags: ["AI", "Food", "Mobile App"],
-      date: "2024-01-15",
-      category: "Product Idea",
-    },
-    {
-      id: 2,
-      title: "Sustainable Packaging Solution",
-      description:
-        "Biodegradable packaging made from agricultural waste for e-commerce businesses. Could reduce plastic waste significantly.",
-      tags: ["Sustainability", "Business", "Innovation"],
-      date: "2024-01-14",
-      category: "Business Idea",
-    },
-    {
-      id: 3,
-      title: "Virtual Study Groups Platform",
-      description:
-        "Connect students worldwide for collaborative learning and peer support. Include features like shared whiteboards and study timers.",
-      tags: ["Education", "Social", "Platform"],
-      date: "2024-01-13",
-      category: "Social Impact",
-    },
-    {
-      id: 4,
-      title: "Smart Home Energy Optimizer",
-      description: "IoT system that automatically adjusts home energy usage based on occupancy and weather patterns.",
-      tags: ["IoT", "Energy", "Smart Home"],
-      date: "2024-01-12",
-      category: "Technology",
-    },
-    {
-      id: 5,
-      title: "Mindfulness App for Developers",
-      description:
-        "A meditation and mindfulness app specifically designed for software developers with coding-themed exercises.",
-      tags: ["Wellness", "Developers", "Mental Health"],
-      date: "2024-01-11",
-      category: "Product Idea",
-    },
-    {
-      id: 6,
-      title: "Local Artist Marketplace",
-      description: "Platform connecting local artists with customers for custom artwork and commissions.",
-      tags: ["Art", "Marketplace", "Local"],
-      date: "2024-01-10",
-      category: "Business Idea",
-    },
+  useEffect(() => {
+    loadData()
+  }, [selectedCategory, sortBy, searchQuery])
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Load categories
+      const cats = await CategoryAPI.getCategories()
+      setCategories(cats)
+
+      // Load ideas with filters
+      const result = await IdeaAPI.getIdeas({
+        category_id: selectedCategory !== "all" ? selectedCategory : undefined,
+        sort_by: sortBy,
+        sort_order: "desc",
+        search: searchQuery || undefined,
+        limit: 100,
+      })
+
+      setIdeas(result.ideas)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load ideas")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleIdeaClick = (ideaId: string) => {
+    router.push(`/dashboard/ideas/${ideaId}`)
+  }
+
+  const categoryOptions = [
+    { value: "all", label: "All Categories" },
+    ...categories.map(cat => ({ value: cat.id, label: cat.name }))
   ]
 
-  // Filter and sort ideas
-  const filteredIdeas = allIdeas
-    .filter((idea) => {
-      const matchesSearch =
-        idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        idea.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        idea.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      const matchesCategory = selectedCategory === "all" || idea.category === selectedCategory
-      return matchesSearch && matchesCategory
-    })
-    .sort((a, b) => {
-      if (sortBy === "date") return new Date(b.date).getTime() - new Date(a.date).getTime()
-      if (sortBy === "title") return a.title.localeCompare(b.title)
-      return 0
-    })
-
-  const categories = ["all", ...Array.from(new Set(allIdeas.map((idea) => idea.category)))]
-
   return (
-    <AppLayout>
-      <PageHeader title="My Ideas" description={`${filteredIdeas.length} ideas captured`}>
-        <Button asChild className="gradient-primary hover:glow-primary">
-          <Link href="/ideas/new">
+    <>
+      <PageHeader title="My Ideas" description={`${ideas.length} ideas captured`}>
+        <Button asChild className="gradient-primary hover:glow-primary transition-all duration-300">
+          <Link href="/dashboard/ideas/new">
             <Plus className="w-4 h-4 mr-2" />
             New Idea
           </Link>
         </Button>
       </PageHeader>
 
-      <div className="p-6 space-y-6">
-        {!hasIdeas ? (
+      <div className="p-4 md:p-6 space-y-6">
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : ideas.length === 0 && !searchQuery && selectedCategory === "all" ? (
           <EmptyState
             icon={Lightbulb}
             title="No ideas captured yet"
             description="Your idea collection is empty. Start capturing your thoughts, inspirations, and creative concepts to build your personal idea library."
             actionLabel="Create your first idea"
-            actionHref="/ideas/new"
+            actionHref="/dashboard/ideas/new"
             illustration="💡"
           />
         ) : (
           <>
             {/* Search and Filters */}
-            <div className="glass p-4 rounded-lg space-y-4">
+            <div className="glass p-4 rounded-xl space-y-4">
               <div className="flex flex-col lg:flex-row gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
@@ -126,20 +106,20 @@ export default function IdeasPage() {
                     placeholder="Search ideas, tags, or descriptions..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 glass border-border/50"
+                    className="pl-10 glass border-border/50 focus:border-primary/50 focus:glow-primary transition-all duration-300"
                   />
                 </div>
 
                 {/* Filters */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger className="w-40 glass border-border/50">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category === "all" ? "All Categories" : category}
+                      {categoryOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -150,8 +130,9 @@ export default function IdeasPage() {
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="created_at">Date</SelectItem>
                       <SelectItem value="title">Title</SelectItem>
+                      <SelectItem value="overall_score">Score</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -179,7 +160,7 @@ export default function IdeasPage() {
             </div>
 
             {/* Ideas Grid/List */}
-            {filteredIdeas.length === 0 ? (
+            {ideas.length === 0 ? (
               <EmptyState
                 icon={Search}
                 title="No ideas found"
@@ -195,47 +176,67 @@ export default function IdeasPage() {
               <div
                 className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"}
               >
-                {filteredIdeas.map((idea) => (
+                {ideas.map((idea) => (
                   <Card
                     key={idea.id}
-                    className="glass hover:glass-strong transition-all duration-300 cursor-pointer group"
+                    onClick={() => handleIdeaClick(idea.id)}
+                    className="glass hover:glass-strong transition-all duration-300 cursor-pointer group hover:scale-[1.02]"
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-base group-hover:text-primary transition-colors duration-200">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base group-hover:text-primary transition-colors duration-200 truncate">
                             {idea.title}
                           </CardTitle>
-                          <CardDescription className="text-sm mt-1 line-clamp-2">{idea.description}</CardDescription>
+                          <CardDescription className="text-sm mt-1 line-clamp-2">
+                            {idea.description || "No description"}
+                          </CardDescription>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-3">
-                        {/* Tags */}
-                        <div className="flex flex-wrap gap-1">
-                          {idea.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              <Tag className="w-3 h-3 mr-1" />
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                    <CardContent className="pt-0 space-y-3">
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1">
+                        {idea.tags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            <Tag className="w-3 h-3 mr-1" />
+                            {tag}
+                          </Badge>
+                        ))}
+                        {idea.tags.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{idea.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <div className="flex items-center">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {new Date(idea.date).toLocaleDateString()}
-                          </div>
-                          <span className="bg-muted/50 px-2 py-1 rounded-full">{idea.category}</span>
+                      {/* Footer */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date(idea.created_at).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {idea.overall_score && (
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                              {idea.overall_score.toFixed(1)}
+                            </span>
+                          )}
+                          <span className={`px-2 py-1 rounded-full capitalize ${
+                            idea.priority === 'high' ? 'bg-red-500/10 text-red-500' :
+                            idea.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-green-500/10 text-green-500'
+                          }`}>
+                            {idea.priority}
+                          </span>
                         </div>
                       </div>
                     </CardContent>
@@ -246,6 +247,6 @@ export default function IdeasPage() {
           </>
         )}
       </div>
-    </AppLayout>
+    </>
   )
 }
