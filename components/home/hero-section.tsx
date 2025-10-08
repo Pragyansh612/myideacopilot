@@ -25,9 +25,9 @@ export function HeroSection() {
                 <span className="text-sm font-medium text-foreground/80">AI-Powered Creativity</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-balance leading-tight">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
                 Your{" "}
-                <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
                   AI-powered
                 </span>{" "}
                 Idea Manager & Copilot
