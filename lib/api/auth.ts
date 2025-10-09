@@ -3,7 +3,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export interface SignupData {
   email: string;
   password: string;
-  full_name: string;
+  display_name?: string;
 }
 
 export interface LoginData {
@@ -11,14 +11,36 @@ export interface LoginData {
   password: string;
 }
 
-export interface AuthResponse {
+export interface User {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+  // Add other user fields as needed
+}
+
+export interface Session {
   access_token: string;
   refresh_token: string;
   token_type: string;
+  expires_in: number;
+  expires_at: number;
+  user: User;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    session: Session;
+  };
 }
 
 export interface ApiError {
-  detail: string;
+  message: string;
+  detail?: string;
 }
 
 export class AuthAPI {
@@ -33,7 +55,7 @@ export class AuthAPI {
 
     if (!response.ok) {
       const error: ApiError = await response.json();
-      throw new Error(error.detail || 'Signup failed');
+      throw new Error(error.message || error.detail || 'Signup failed');
     }
 
     return response.json();
@@ -50,10 +72,12 @@ export class AuthAPI {
 
     if (!response.ok) {
       const error: ApiError = await response.json();
-      throw new Error(error.detail || 'Login failed');
+      throw new Error(error.message || error.detail || 'Login failed');
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log('Login response:', result); // Debug log
+    return result;
   }
 
   static async refreshToken(refreshToken: string): Promise<AuthResponse> {
@@ -66,9 +90,20 @@ export class AuthAPI {
     });
 
     if (!response.ok) {
-      throw new Error('Token refresh failed');
+      const error: ApiError = await response.json();
+      throw new Error(error.message || error.detail || 'Token refresh failed');
     }
 
     return response.json();
+  }
+
+  static async logout(accessToken: string): Promise<void> {
+    await fetch(`${API_URL}/api/auth/signout`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
   }
 }

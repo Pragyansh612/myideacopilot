@@ -8,9 +8,7 @@ export class TokenManager {
       localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
       
-      // Set in cookies for middleware access
-      document.cookie = `access_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-      document.cookie = `refresh_token=${refreshToken}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+      // Note: Cookies are now set via API route for proper server-side access
     }
   }
 
@@ -32,10 +30,6 @@ export class TokenManager {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(this.ACCESS_TOKEN_KEY);
       localStorage.removeItem(this.REFRESH_TOKEN_KEY);
-      
-      // Clear cookies
-      document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
   }
 

@@ -1,18 +1,29 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { TokenManager } from '@/lib/auth/tokens';
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     setIsAuthenticated(TokenManager.isAuthenticated());
     setIsLoading(false);
   }, []);
 
-  const logout = () => {
+  const logout = async () => {
+    // Clear client-side tokens
     TokenManager.clearTokens();
+    
+    // Clear server-side cookies
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+    });
+    
     setIsAuthenticated(false);
+    router.push('/login');
+    router.refresh();
   };
 
   return {

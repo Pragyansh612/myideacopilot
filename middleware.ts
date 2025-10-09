@@ -14,6 +14,8 @@ export function middleware(request: NextRequest) {
   // Get the token from cookies
   const token = request.cookies.get('access_token')?.value || ''
 
+  console.log(token)
+
   // If accessing dashboard routes without a token, redirect to login
   if (isDashboardPath && !token) {
     const loginUrl = new URL('/login', request.url)
