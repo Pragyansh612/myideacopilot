@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LayoutDashboard, Lightbulb, Bot, Settings, Menu, X, LogOut, Brain } from "lucide-react"
 import { TokenManager } from "@/lib/auth/tokens"
+import { AuthAPI } from "@/lib/api/auth"
 
 const navigation = [
   {
@@ -37,10 +38,38 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const handleLogout = () => {
-    TokenManager.clearTokens()
-    router.push("/login")
+const handleLogout = async () => {
+  try {
+    // Get access token before clearing
+    const accessToken = TokenManager.getAccessToken();
+    
+    // Call backend logout API if token exists
+    if (accessToken) {
+      try {
+        await AuthAPI.logout(accessToken);
+      } catch (error) {
+        console.error('Backend logout failed:', error);
+        // Continue with client-side logout even if backend fails
+      }
+    }
+    
+    // Clear cookies via API route
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+    });
+    
+    // Clear localStorage
+    TokenManager.clearTokens();
+    
+    // Redirect to login
+    router.push("/login");
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Force logout even if there's an error
+    TokenManager.clearTokens();
+    router.push("/login");
   }
+}
 
   return (
     <>

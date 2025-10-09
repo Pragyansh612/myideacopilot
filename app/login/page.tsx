@@ -49,14 +49,14 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // console.log('Attempting login...') // Debug log
+      console.log('Attempting login...') // Debug log
       
       const response = await AuthAPI.login({
         email: formData.email,
         password: formData.password
       })
 
-      // console.log('Login response received:', response) // Debug log
+      console.log('Login response received:', response) // Debug log
 
       // Extract tokens from the correct path: data.session
       const access_token = response?.data?.session?.access_token
@@ -73,17 +73,17 @@ export default function LoginPage() {
         throw new Error('Unable to extract authentication tokens from server response')
       }
 
-      // console.log('Tokens extracted successfully:', {
-      //   accessTokenLength: access_token.length,
-      //   refreshTokenLength: refresh_token.length
-      // })
+      console.log('Tokens extracted successfully:', {
+        accessTokenLength: access_token.length,
+        refreshTokenLength: refresh_token.length
+      })
 
       // Store tokens in localStorage
       TokenManager.setTokens(access_token, refresh_token)
-      // console.log('Tokens stored in localStorage')
+      console.log('Tokens stored in localStorage')
 
       // Set cookies via server action for immediate middleware access
-      // console.log('Setting cookies via API...')
+      console.log('Setting cookies via API...')
       const cookieResponse = await fetch('/api/auth/set-cookies', {
         method: 'POST',
         headers: {
@@ -105,13 +105,12 @@ export default function LoginPage() {
       console.log('Cookies set successfully:', cookieResult)
 
       // Small delay to ensure cookies are set before redirect
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 150))
 
       console.log('Redirecting to:', redirectTo)
 
-      // Redirect to intended destination or dashboard
-      router.push(redirectTo)
-      router.refresh() // Force a router refresh to ensure middleware runs with new cookies
+      // Force a hard navigation to ensure middleware picks up cookies
+      window.location.href = redirectTo
     } catch (err) {
       console.error('Login error:', err)
       const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again."

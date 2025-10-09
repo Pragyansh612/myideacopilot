@@ -76,7 +76,7 @@ export class AuthAPI {
     }
 
     const result = await response.json();
-    console.log('Login response:', result); // Debug log
+    // console.log('Login response:', result); // Debug log
     return result;
   }
 

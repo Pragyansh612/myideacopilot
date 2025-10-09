@@ -14,21 +14,18 @@ import { TokenManager } from "@/lib/auth/tokens"
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    fullName: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    display_name: ""
   })
-
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   const router = useRouter()
 
-    // Check if user is already authenticated
+  // Check if user is already authenticated
   useEffect(() => {
     if (TokenManager.isAuthenticated()) {
       router.push('/dashboard')
@@ -48,46 +45,95 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
-      return
-    }
-
     setIsLoading(true)
 
     try {
+      console.log('Attempting signup...') // Debug log
+      
       const response = await AuthAPI.signup({
         email: formData.email,
         password: formData.password,
-        display_name: formData.fullName
+        display_name: formData.display_name || undefined
       })
 
+      console.log('Signup response received:', response) // Debug log
+
+      // Extract tokens from the correct path: data.session
       const access_token = response?.data?.session?.access_token
       const refresh_token = response?.data?.session?.refresh_token
 
-      TokenManager.setTokens(access_token, refresh_token)
+      if (!access_token || !refresh_token) {
+        console.error('Missing tokens in response structure:', {
+          hasData: !!response?.data,
+          hasSession: !!response?.data?.session,
+          hasAccessToken: !!access_token,
+          hasRefreshToken: !!refresh_token,
+          fullResponse: response
+        })
+        throw new Error('Unable to extract authentication tokens from server response')
+      }
 
-      // Redirect to dashboard or home
-      router.push('/dashboard')
+      console.log('Tokens extracted successfully:', {
+        accessTokenLength: access_token.length,
+        refreshTokenLength: refresh_token.length
+      })
+
+      // Store tokens in localStorage
+      TokenManager.setTokens(access_token, refresh_token)
+      console.log('Tokens stored in localStorage')
+
+      // Set cookies via API for immediate middleware access
+      console.log('Setting cookies via API...')
+      const cookieResponse = await fetch('/api/auth/set-cookies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          access_token,
+          refresh_token
+        }),
+      })
+
+      if (!cookieResponse.ok) {
+        const errorData = await cookieResponse.json()
+        console.error('Failed to set cookies:', errorData)
+        throw new Error(`Failed to set authentication cookies: ${errorData.error || 'Unknown error'}`)
+      }
+
+      const cookieResult = await cookieResponse.json()
+      console.log('Cookies set successfully:', cookieResult)
+
+      // Small delay to ensure cookies are set before redirect
+      await new Promise(resolve => setTimeout(resolve, 150))
+
+      console.log('Redirecting to dashboard')
+
+      // Force a hard navigation to ensure middleware picks up cookies
+      window.location.href = '/dashboard'
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed. Please try again.")
+      console.error('Signup error:', err)
+      const errorMessage = err instanceof Error ? err.message : "Signup failed. Please try again."
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <AuthLayout
-      title="Create your account"
-      subtitle="Join thousands of creators and start your AI-powered idea journey"
-    >
+    <AuthLayout title="Create your account" subtitle="Start your creative journey with MyIdeaCopilot">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Error message */}
         {error && (
@@ -96,21 +142,21 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* Name */}
+        {/* Display Name */}
         <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name</Label>
+          <Label htmlFor="display_name">Display Name</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              id="fullName"
-              name="fullName"
+              id="display_name"
+              name="display_name"
               type="text"
-              placeholder="Enter your full name"
+              placeholder="Enter your name"
               className="pl-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
-              value={formData.fullName}
+              value={formData.display_name}
               onChange={handleChange}
-              required
               disabled={isLoading}
+              autoComplete="name"
             />
           </div>
         </div>
@@ -130,6 +176,7 @@ export default function SignupPage() {
               onChange={handleChange}
               required
               disabled={isLoading}
+              autoComplete="email"
             />
           </div>
         </div>
@@ -143,12 +190,14 @@ export default function SignupPage() {
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Create a password (min 8 characters)"
+              placeholder="Create a password (min 6 characters)"
               className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
               value={formData.password}
               onChange={handleChange}
               required
+              minLength={6}
               disabled={isLoading}
+              autoComplete="new-password"
             />
             <button
               type="button"
@@ -159,56 +208,29 @@ export default function SignupPage() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-        </div>
-
-        {/* Confirm Password */}
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
-              placeholder="Confirm your password"
-              className="pl-10 pr-10 glass focus:ring-2 focus:ring-primary/50 focus:glow-primary transition-all duration-300"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              disabled={isLoading}
-            >
-              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Terms */}
-        <div className="text-xs text-muted-foreground text-pretty">
-          By creating an account, you agree to our{" "}
-          <Link href="/terms" className="text-primary hover:text-primary/80 transition-colors">
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-primary hover:text-primary/80 transition-colors">
-            Privacy Policy
-          </Link>
-          .
+          <p className="text-xs text-muted-foreground">Must be at least 6 characters long</p>
         </div>
 
         {/* Submit Button */}
         <Button
           type="submit"
           className="w-full gradient-primary hover:glow-primary transition-all duration-300"
-          disabled={isLoading}
+          disabled={isLoading || !formData.email || formData.password.length < 6}
         >
-          {isLoading ? "Creating account..." : "Create Account"}
+          {isLoading ? "Creating account..." : "Sign Up"}
         </Button>
+
+        {/* Terms */}
+        <p className="text-xs text-center text-muted-foreground">
+          By signing up, you agree to our{" "}
+          <Link href="/terms" className="text-primary hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-primary hover:underline">
+            Privacy Policy
+          </Link>
+        </p>
 
         {/* Divider */}
         <div className="relative">
@@ -245,7 +267,7 @@ export default function SignupPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Sign up with Google
+          Continue with Google
         </Button>
       </form>
 

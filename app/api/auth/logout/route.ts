@@ -1,47 +1,19 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    const body = await request.json();
-    console.log('Received body:', body); // Debug log
-    
-    const { access_token, refresh_token } = body;
-
-    if (!access_token || !refresh_token) {
-      console.error('Missing tokens. Body:', body); // Debug log
-      return NextResponse.json(
-        { error: 'Missing tokens', received: body },
-        { status: 400 }
-      );
-    }
-
-    // Get cookies store
     const cookieStore = await cookies();
 
-    // Set access token cookie (7 days)
-    cookieStore.set('access_token', access_token, {
-      httpOnly: false, // Allow client-side access if needed
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    });
-
-    // Set refresh token cookie (30 days)
-    cookieStore.set('refresh_token', refresh_token, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      path: '/',
-    });
+    // Clear both cookies
+    cookieStore.delete('access_token');
+    cookieStore.delete('refresh_token');
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error setting cookies:', error);
+    console.error('Error clearing cookies:', error);
     return NextResponse.json(
-      { error: 'Failed to set cookies' },
+      { error: 'Failed to clear cookies' },
       { status: 500 }
     );
   }

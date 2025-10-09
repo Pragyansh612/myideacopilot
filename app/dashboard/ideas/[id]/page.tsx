@@ -9,15 +9,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  ArrowLeft, Edit2, Trash2, Save, X, Plus, Loader2, 
+import {
+  ArrowLeft, Edit2, Trash2, Save, X, Plus, Loader2,
   CheckCircle2, Circle, MoreVertical, Calendar, Target,
   TrendingUp, Zap, Users, ExternalLink
 } from "lucide-react"
 import Link from "next/link"
-import { 
+import {
   IdeaAPI, PhaseAPI, FeatureAPI, CompetitorAPI,
-  type IdeaDetail, type Phase, type Feature, type IdeaUpdate 
+  type IdeaDetail, type Phase, type Feature, type IdeaUpdate
 } from "@/lib/api/idea"
 
 export default function IdeaDetailPage() {
@@ -210,15 +210,15 @@ export default function IdeaDetailPage() {
 
   if (!ideaDetail) return null
 
-  const { idea, phases, features } = ideaDetail
+  const { idea, phases = [], features = [] } = ideaDetail
   const totalFeatures = features.length
   const completedFeatures = features.filter(f => f.is_completed).length
   const progress = totalFeatures > 0 ? (completedFeatures / totalFeatures) * 100 : 0
 
   return (
     <>
-      <PageHeader 
-        title={isEditing ? "Edit Idea" : idea.title} 
+      <PageHeader
+        title={isEditing ? "Edit Idea" : idea.title}
         description={!isEditing && idea.description ? idea.description : undefined}
       >
         <div className="flex items-center gap-2">
@@ -336,7 +336,7 @@ export default function IdeaDetailPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
-                    <p className="text-2xl font-bold capitalize">{idea.status.replace('_', ' ')}</p>
+                    <p className="text-2xl font-bold capitalize">{idea.status?.replace('_', ' ') || 'N/A'}</p>
                   </div>
                   <CheckCircle2 className="w-8 h-8 text-primary" />
                 </div>
@@ -346,7 +346,7 @@ export default function IdeaDetailPage() {
         )}
 
         {/* Tags */}
-        {!isEditing && idea.tags.length > 0 && (
+        {!isEditing && idea.tags && idea.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {idea.tags.map((tag) => (
               <Badge key={tag} variant="secondary">
@@ -579,131 +579,131 @@ export default function IdeaDetailPage() {
           </TabsContent>
 
           {/* Competitors Tab */}
-<TabsContent value="competitors" className="space-y-4">
-  <Card className="glass">
-    <CardHeader>
-      <CardTitle>Competitor Research</CardTitle>
-      <CardDescription>Analyze competitor websites to understand the market</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Competitor URLs (one per line)</label>
-        <Textarea
-          placeholder="https://competitor1.com&#10;https://competitor2.com&#10;https://competitor3.com"
-          value={competitorUrls}
-          onChange={(e) => setCompetitorUrls(e.target.value)}
-          rows={5}
-          className="glass resize-none"
-          disabled={isScrapingCompetitors}
-        />
-      </div>
-      <Button
-        onClick={handleScrapeCompetitors}
-        disabled={isScrapingCompetitors || !competitorUrls.trim()}
-        className="gradient-primary"
-      >
-        {isScrapingCompetitors ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Analyzing...
-          </>
-        ) : (
-          <>
-            <Users className="w-4 h-4 mr-2" />
-            Analyze Competitors
-          </>
-        )}
-      </Button>
-    </CardContent>
-  </Card>
+          <TabsContent value="competitors" className="space-y-4">
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle>Competitor Research</CardTitle>
+                <CardDescription>Analyze competitor websites to understand the market</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Competitor URLs (one per line)</label>
+                  <Textarea
+                    placeholder="https://competitor1.com&#10;https://competitor2.com&#10;https://competitor3.com"
+                    value={competitorUrls}
+                    onChange={(e) => setCompetitorUrls(e.target.value)}
+                    rows={5}
+                    className="glass resize-none"
+                    disabled={isScrapingCompetitors}
+                  />
+                </div>
+                <Button
+                  onClick={handleScrapeCompetitors}
+                  disabled={isScrapingCompetitors || !competitorUrls.trim()}
+                  className="gradient-primary"
+                >
+                  {isScrapingCompetitors ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4 mr-2" />
+                      Analyze Competitors
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
 
-  {/* Competitor Results */}
-  {competitorData && competitorData.research && competitorData.research.length > 0 && (
-    <div className="space-y-4">
-      {competitorData.research.map((competitor: any, index: number) => (
-        <Card key={index} className="glass">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <CardTitle>{competitor.competitor_name || `Competitor ${index + 1}`}</CardTitle>
-                {competitor.competitor_url && (
-                  <a
-                    href={competitor.competitor_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
-                  >
-                    {competitor.competitor_url}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-              </div>
-              {competitor.confidence_score && (
-                <Badge variant="secondary" className="ml-2 flex-shrink-0">
-                  {(competitor.confidence_score * 100).toFixed(0)}% confidence
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {competitor.description && (
-              <p className="text-sm text-muted-foreground">{competitor.description}</p>
-            )}
+            {/* Competitor Results */}
+            {competitorData && competitorData.research && competitorData.research.length > 0 && (
+              <div className="space-y-4">
+                {competitorData.research.map((competitor: any, index: number) => (
+                  <Card key={index} className="glass">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle>{competitor.competitor_name || `Competitor ${index + 1}`}</CardTitle>
+                          {competitor.competitor_url && (
+                            <a
+                              href={competitor.competitor_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                            >
+                              {competitor.competitor_url}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        {competitor.confidence_score && (
+                          <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                            {(competitor.confidence_score * 100).toFixed(0)}% confidence
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {competitor.description && (
+                        <p className="text-sm text-muted-foreground">{competitor.description}</p>
+                      )}
 
-            {competitor.strengths && competitor.strengths.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-green-500">Strengths</h4>
-                <ul className="space-y-1">
-                  {competitor.strengths.map((strength: string, idx: number) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      {strength}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      {competitor.strengths && competitor.strengths.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-green-500">Strengths</h4>
+                          <ul className="space-y-1">
+                            {competitor.strengths.map((strength: string, idx: number) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                {strength}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
-            {competitor.weaknesses && competitor.weaknesses.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-red-500">Weaknesses</h4>
-                <ul className="space-y-1">
-                  {competitor.weaknesses.map((weakness: string, idx: number) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      {weakness}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      {competitor.weaknesses && competitor.weaknesses.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-red-500">Weaknesses</h4>
+                          <ul className="space-y-1">
+                            {competitor.weaknesses.map((weakness: string, idx: number) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                {weakness}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
-            {competitor.differentiation_opportunities && competitor.differentiation_opportunities.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-primary">Differentiation Opportunities</h4>
-                <ul className="space-y-1">
-                  {competitor.differentiation_opportunities.map((opp: string, idx: number) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <Zap className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      {opp}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      {competitor.differentiation_opportunities && competitor.differentiation_opportunities.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-primary">Differentiation Opportunities</h4>
+                          <ul className="space-y-1">
+                            {competitor.differentiation_opportunities.map((opp: string, idx: number) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <Zap className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                {opp}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
-            {competitor.market_position && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Market Position</h4>
-                <p className="text-sm text-muted-foreground">{competitor.market_position}</p>
+                      {competitor.market_position && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold">Market Position</h4>
+                          <p className="text-sm text-muted-foreground">{competitor.market_position}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )}
-</TabsContent>
+          </TabsContent>
 
           {/* Details Tab */}
           <TabsContent value="details" className="space-y-4">

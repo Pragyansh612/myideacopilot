@@ -50,6 +50,8 @@ export default function NewIdeaPage() {
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6")
+  const [newCategoryDescription, setNewCategoryDescription] = useState("")
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
 
   useEffect(() => {
     loadCategories()
@@ -67,20 +69,36 @@ export default function NewIdeaPage() {
   }
 
   const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return
+    if (!newCategoryName.trim()) {
+      setError("Category name is required")
+      return
+    }
 
+    setIsCreatingCategory(true)
     try {
-      const category = await CategoryAPI.createCategory({
-        name: newCategoryName,
-        color: newCategoryColor,
-      })
+      const payload = {
+        name: newCategoryName.trim(),
+        color: newCategoryColor || "#3B82F6",
+        ...(newCategoryDescription.trim() && { description: newCategoryDescription.trim() }),
+      }
+      
+      console.log("Creating category with payload:", payload)
+      
+      const category = await CategoryAPI.createCategory(payload)
+      console.log("Category created successfully:", category)
+      
       setCategories([...categories, category])
       setCategoryId(category.id)
       setShowCategoryDialog(false)
       setNewCategoryName("")
       setNewCategoryColor("#3B82F6")
+      setNewCategoryDescription("")
+      setError(null)
     } catch (err) {
       console.error("Failed to create category:", err)
+      setError(err instanceof Error ? err.message : "Failed to create category")
+    } finally {
+      setIsCreatingCategory(false)
     }
   }
 
@@ -396,14 +414,28 @@ export default function NewIdeaPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Category Name</label>
+                <label className="text-sm font-medium">Category Name *</label>
                 <Input
                   placeholder="e.g., Product Ideas"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="glass border-border/50"
+                  className="glass border-border/50 focus:border-primary/50 focus:glow-primary transition-all duration-300"
+                  disabled={isCreatingCategory}
                 />
               </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  placeholder="What kind of ideas belong in this category? (optional)"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  rows={3}
+                  className="glass border-border/50 focus:border-primary/50 focus:glow-primary resize-none transition-all duration-300"
+                  disabled={isCreatingCategory}
+                />
+              </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-medium">Color</label>
                 <div className="flex gap-2">
@@ -411,23 +443,47 @@ export default function NewIdeaPage() {
                     type="color"
                     value={newCategoryColor}
                     onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="w-20 h-10"
+                    className="w-20 h-10 cursor-pointer"
+                    disabled={isCreatingCategory}
                   />
                   <Input
                     type="text"
                     value={newCategoryColor}
                     onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="glass border-border/50"
+                    className="glass border-border/50 focus:border-primary/50 transition-all duration-300"
                     placeholder="#3B82F6"
+                    disabled={isCreatingCategory}
                   />
                 </div>
               </div>
+              
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowCategoryDialog(false)
+                    setNewCategoryName("")
+                    setNewCategoryColor("#3B82F6")
+                    setNewCategoryDescription("")
+                    setError(null)
+                  }}
+                  disabled={isCreatingCategory}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateCategory} disabled={!newCategoryName.trim()} className="gradient-primary">
-                  Create
+                <Button 
+                  onClick={handleCreateCategory} 
+                  disabled={!newCategoryName.trim() || isCreatingCategory} 
+                  className="gradient-primary"
+                >
+                  {isCreatingCategory ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create"
+                  )}
                 </Button>
               </div>
             </CardContent>
