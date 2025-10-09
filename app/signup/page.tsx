@@ -66,11 +66,13 @@ export default function SignupPage() {
       const response = await AuthAPI.signup({
         email: formData.email,
         password: formData.password,
-        full_name: formData.fullName
+        display_name: formData.fullName
       })
 
-      // Store tokens
-      TokenManager.setTokens(response.access_token, response.refresh_token)
+      const access_token = response?.data?.session?.access_token
+      const refresh_token = response?.data?.session?.refresh_token
+
+      TokenManager.setTokens(access_token, refresh_token)
 
       // Redirect to dashboard or home
       router.push('/dashboard')
