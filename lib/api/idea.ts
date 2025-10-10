@@ -92,6 +92,20 @@ export interface Idea {
   updated_at: string;
 }
 
+export interface IdeaDetailResponse {
+  idea: {
+    idea: Idea;
+    phases: Phase[];
+    features: Feature[];
+  };
+}
+
+export interface IdeaDetail {
+  idea: Idea;
+  phases: Phase[];
+  features: Feature[];
+}
+
 export interface IdeaCreate {
   title: string;
   description?: string;
@@ -278,10 +292,10 @@ export class IdeaAPI {
     return result.data;
   }
 
-  static async getIdea(ideaId: string): Promise<IdeaDetail> {
-    const result = await fetchWithAuth(`${API_URL}/api/ideas/${ideaId}`);
-    return result.data;
-  }
+static async getIdea(ideaId: string): Promise<IdeaDetailResponse> {
+  const result = await fetchWithAuth(`${API_URL}/api/ideas/${ideaId}`);
+  return result.data;
+}
 
   static async createIdea(data: IdeaCreate): Promise<Idea> {
     const result = await fetchWithAuth(`${API_URL}/api/ideas`, {

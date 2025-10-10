@@ -27,7 +27,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             <div className="p-3 rounded-xl gradient-primary group-hover:glow-primary transition-all duration-300">
               <Brain className="h-8 w-8 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
               MyIdeaCopilot
             </span>
           </Link>

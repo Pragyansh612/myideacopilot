@@ -55,9 +55,6 @@ export default function LoginPage() {
         email: formData.email,
         password: formData.password
       })
-
-      console.log('Login response received:', response) // Debug log
-
       // Extract tokens from the correct path: data.session
       const access_token = response?.data?.session?.access_token
       const refresh_token = response?.data?.session?.refresh_token
@@ -73,14 +70,8 @@ export default function LoginPage() {
         throw new Error('Unable to extract authentication tokens from server response')
       }
 
-      console.log('Tokens extracted successfully:', {
-        accessTokenLength: access_token.length,
-        refreshTokenLength: refresh_token.length
-      })
-
       // Store tokens in localStorage
       TokenManager.setTokens(access_token, refresh_token)
-      console.log('Tokens stored in localStorage')
 
       // Set cookies via server action for immediate middleware access
       console.log('Setting cookies via API...')
