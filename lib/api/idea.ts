@@ -1,9 +1,53 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// ==================== TYPES ====================
-
 export type PriorityEnum = 'low' | 'medium' | 'high';
 export type StatusEnum = 'new' | 'in_progress' | 'completed' | 'archived' | 'paused';
+
+export type SuggestionTypeEnum = 'features' | 'improvements' | 'marketing' | 'validation';
+
+export interface AIGenerateRequest {
+  idea_id: string;
+  suggestion_type: SuggestionTypeEnum;
+  context?: string;
+}
+
+export interface AISuggestion {
+  id: string;
+  user_id: string;
+  idea_id: string;
+  suggestion_type: string;
+  suggestion_text: string;
+  content: string | any; 
+  context?: string;
+  confidence_score?: number;
+  created_at: string;
+}
+
+export interface AIQueryLog {
+  id: string;
+  user_id: string;
+  idea_id?: string;
+  query_type: string;
+  query_text: string;
+  response_text: string;
+  tokens_used?: number;
+  created_at: string;
+}
+
+export interface CompetitorResearch {
+  id: string;
+  idea_id: string;
+  competitor_url: string;
+  competitor_name?: string;
+  description?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  differentiation_opportunities?: string[];
+  market_position?: string;
+  confidence_score?: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Category {
   id: string;
@@ -346,5 +390,25 @@ export class CompetitorAPI {
   static async getCompetitorResearch(ideaId: string): Promise<any> {
     const result = await fetchWithAuth(`${API_URL}/api/competitor/${ideaId}`);
     return result.data;
+  }
+}
+
+export class AIAPI {
+  static async generateSuggestions(data: AIGenerateRequest): Promise<AISuggestion> {
+    const result = await fetchWithAuth(`${API_URL}/api/ai/suggest`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.data.suggestion;
+  }
+
+  static async getSuggestions(ideaId: string): Promise<AISuggestion[]> {
+    const result = await fetchWithAuth(`${API_URL}/api/ai/suggestions/${ideaId}`);
+    return result.data.suggestions;
+  }
+
+  static async getQueryLogs(limit: number = 50): Promise<AIQueryLog[]> {
+    const result = await fetchWithAuth(`${API_URL}/api/ai/logs?limit=${limit}`);
+    return result.data.logs;
   }
 }

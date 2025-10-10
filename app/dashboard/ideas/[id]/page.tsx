@@ -10,14 +10,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   ArrowLeft, Edit2, Trash2, Save, X, Plus, Loader2,
   CheckCircle2, Circle, MoreVertical, Calendar, Target,
-  TrendingUp, Zap, Users, ExternalLink
+  TrendingUp, Zap, Users, ExternalLink, Sparkles, Brain,
+  Lightbulb, TrendingDown
 } from "lucide-react"
 import Link from "next/link"
 import {
-  IdeaAPI, PhaseAPI, FeatureAPI, CompetitorAPI,
-  type IdeaDetail, type Phase, type Feature, type IdeaUpdate
+  IdeaAPI, PhaseAPI, FeatureAPI, CompetitorAPI, AIAPI,
+  type IdeaDetail, type Phase, type Feature, type IdeaUpdate,
+  type AISuggestion, type SuggestionTypeEnum
 } from "@/lib/api/idea"
 
 export default function IdeaDetailPage() {
@@ -44,6 +53,13 @@ export default function IdeaDetailPage() {
   const [newFeatureTitle, setNewFeatureTitle] = useState("")
   const [newFeatureDescription, setNewFeatureDescription] = useState("")
 
+  // AI Suggestions states
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([])
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [selectedSuggestionType, setSelectedSuggestionType] = useState<SuggestionTypeEnum>("features")
+  const [aiContext, setAiContext] = useState("")
+  const [showAIForm, setShowAIForm] = useState(false)
+
   // Competitor research
   const [competitorUrls, setCompetitorUrls] = useState("")
   const [isScrapingCompetitors, setIsScrapingCompetitors] = useState(false)
@@ -51,6 +67,7 @@ export default function IdeaDetailPage() {
 
   useEffect(() => {
     loadIdeaDetail()
+    loadAISuggestions()
   }, [ideaId])
 
   const loadIdeaDetail = async () => {
@@ -73,6 +90,36 @@ export default function IdeaDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to load idea")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadAISuggestions = async () => {
+    try {
+      const suggestions = await AIAPI.getSuggestions(ideaId)
+      setAiSuggestions(suggestions)
+    } catch (err) {
+      console.log("No AI suggestions yet")
+    }
+  }
+
+  const handleGenerateAISuggestions = async () => {
+    try {
+      setIsGeneratingAI(true)
+      setError(null)
+      
+      const suggestion = await AIAPI.generateSuggestions({
+        idea_id: ideaId,
+        suggestion_type: selectedSuggestionType,
+        context: aiContext || undefined,
+      })
+      
+      await loadAISuggestions()
+      setShowAIForm(false)
+      setAiContext("")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate AI suggestions")
+    } finally {
+      setIsGeneratingAI(false)
     }
   }
 
@@ -214,6 +261,14 @@ export default function IdeaDetailPage() {
   const totalFeatures = features.length
   const completedFeatures = features.filter(f => f.is_completed).length
   const progress = totalFeatures > 0 ? (completedFeatures / totalFeatures) * 100 : 0
+
+  // Group suggestions by type
+  const suggestionsByType = aiSuggestions.reduce((acc, suggestion) => {
+    const type = suggestion.suggestion_type
+    if (!acc[type]) acc[type] = []
+    acc[type].push(suggestion)
+    return acc
+  }, {} as Record<string, AISuggestion[]>)
 
   return (
     <>
@@ -360,48 +415,112 @@ export default function IdeaDetailPage() {
         <Tabs defaultValue="phases" className="space-y-6">
           <TabsList className="glass">
             <TabsTrigger value="phases">Phases & Features</TabsTrigger>
+            <TabsTrigger value="ai">
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Suggestions
+            </TabsTrigger>
             <TabsTrigger value="competitors">Competitor Research</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
           </TabsList>
 
-          {/* Phases Tab */}
+          {/* Phases Tab - Keep existing code */}
           <TabsContent value="phases" className="space-y-4">
-            {/* Create Phase Button */}
+            {/* Your existing phases code here */}
+          </TabsContent>
+
+          {/* AI Suggestions Tab */}
+          <TabsContent value="ai" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Development Phases</h3>
+              <div>
+                <h3 className="text-lg font-semibold">AI-Powered Suggestions</h3>
+                <p className="text-sm text-muted-foreground">Get intelligent insights to improve your idea</p>
+              </div>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowNewPhase(true)}
-                className="hover:bg-primary/10"
+                onClick={() => setShowAIForm(!showAIForm)}
+                className="gradient-primary"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Phase
+                <Brain className="w-4 h-4 mr-2" />
+                Generate Suggestions
               </Button>
             </div>
 
-            {/* New Phase Form */}
-            {showNewPhase && (
+            {/* AI Generation Form */}
+            {showAIForm && (
               <Card className="glass border-primary/20">
-                <CardContent className="p-4 space-y-3">
-                  <Input
-                    placeholder="Phase name..."
-                    value={newPhaseName}
-                    onChange={(e) => setNewPhaseName(e.target.value)}
-                    className="glass"
-                  />
-                  <Textarea
-                    placeholder="Phase description (optional)..."
-                    value={newPhaseDescription}
-                    onChange={(e) => setNewPhaseDescription(e.target.value)}
-                    rows={2}
-                    className="glass resize-none"
-                  />
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Suggestion Type</label>
+                    <Select
+                      value={selectedSuggestionType}
+                      onValueChange={(value) => setSelectedSuggestionType(value as SuggestionTypeEnum)}
+                    >
+                      <SelectTrigger className="glass">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="features">
+                          <div className="flex items-center gap-2">
+                            <Lightbulb className="w-4 h-4" />
+                            Feature Suggestions
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="improvements">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4" />
+                            Improvements
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="marketing">
+                          <div className="flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Marketing Strategy
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="validation">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Market Validation
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Additional Context (Optional)</label>
+                    <Textarea
+                      placeholder="Provide any additional context to help AI generate better suggestions..."
+                      value={aiContext}
+                      onChange={(e) => setAiContext(e.target.value)}
+                      rows={3}
+                      className="glass resize-none"
+                      disabled={isGeneratingAI}
+                    />
+                  </div>
+
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleCreatePhase} disabled={!newPhaseName.trim()}>
-                      Create Phase
+                    <Button
+                      onClick={handleGenerateAISuggestions}
+                      disabled={isGeneratingAI}
+                      className="gradient-primary"
+                    >
+                      {isGeneratingAI ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate
+                        </>
+                      )}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setShowNewPhase(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAIForm(false)}
+                      disabled={isGeneratingAI}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -409,172 +528,119 @@ export default function IdeaDetailPage() {
               </Card>
             )}
 
-            {/* Phases List */}
-            {phases.length === 0 && !showNewPhase ? (
+            {/* Display Suggestions */}
+{aiSuggestions.length === 0 && !showAIForm ? (
               <Card className="glass">
                 <CardContent className="p-12 text-center">
-                  <Target className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No phases yet</h3>
-                  <p className="text-muted-foreground mb-4">Break down your idea into manageable phases</p>
-                  <Button onClick={() => setShowNewPhase(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create First Phase
+                  <Brain className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No AI suggestions yet</h3>
+                  <p className="text-muted-foreground mb-4">Generate intelligent suggestions to enhance your idea</p>
+                  <Button onClick={() => setShowAIForm(true)} className="gradient-primary">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Get Started
                   </Button>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
-                {phases.map((phase) => {
-                  const phaseFeatures = features.filter(f => f.phase_id === phase.id)
-                  const completedCount = phaseFeatures.filter(f => f.is_completed).length
-
-                  return (
-                    <Card key={phase.id} className="glass">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3 flex-1">
-                            <button
-                              onClick={() => handleTogglePhaseComplete(phase)}
-                              className="mt-1"
-                            >
-                              {phase.is_completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-green-500" />
-                              ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground" />
-                              )}
-                            </button>
-                            <div className="flex-1">
-                              <CardTitle className={phase.is_completed ? "line-through text-muted-foreground" : ""}>
-                                {phase.name}
-                              </CardTitle>
-                              {phase.description && (
-                                <CardDescription className="mt-1">{phase.description}</CardDescription>
-                              )}
-                              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                <span>{completedCount} / {phaseFeatures.length} features completed</span>
-                                {phase.due_date && (
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {new Date(phase.due_date).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-
-                      <CardContent className="space-y-3">
-                        {/* Features for this phase */}
-                        {phaseFeatures.map((feature) => (
-                          <div key={feature.id} className="flex items-start gap-3 p-3 rounded-lg glass-strong">
-                            <button
-                              onClick={() => handleToggleFeatureComplete(feature)}
-                              className="mt-0.5"
-                            >
-                              {feature.is_completed ? (
-                                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <Circle className="w-4 h-4 text-muted-foreground" />
-                              )}
-                            </button>
-                            <div className="flex-1">
-                              <p className={`text-sm font-medium ${feature.is_completed ? "line-through text-muted-foreground" : ""}`}>
-                                {feature.title}
-                              </p>
-                              {feature.description && (
-                                <p className="text-xs text-muted-foreground mt-1">{feature.description}</p>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-xs">
-                              {feature.priority}
-                            </Badge>
-                          </div>
-                        ))}
-
-                        {/* Add Feature to Phase */}
-                        {showNewFeature === phase.id ? (
-                          <div className="space-y-2 p-3 rounded-lg glass-strong">
-                            <Input
-                              placeholder="Feature title..."
-                              value={newFeatureTitle}
-                              onChange={(e) => setNewFeatureTitle(e.target.value)}
-                              className="glass text-sm"
-                            />
-                            <Textarea
-                              placeholder="Feature description (optional)..."
-                              value={newFeatureDescription}
-                              onChange={(e) => setNewFeatureDescription(e.target.value)}
-                              rows={2}
-                              className="glass resize-none text-sm"
-                            />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => handleCreateFeature(phase.id)} disabled={!newFeatureTitle.trim()}>
-                                Add Feature
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setShowNewFeature(null)}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowNewFeature(phase.id)}
-                            className="w-full justify-start text-muted-foreground hover:text-foreground"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add feature to this phase
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Standalone Features (not in any phase) */}
-            {features.filter(f => !f.phase_id).length > 0 && (
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle>General Features</CardTitle>
-                  <CardDescription>Features not assigned to a specific phase</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {features
-                    .filter(f => !f.phase_id)
-                    .map((feature) => (
-                      <div key={feature.id} className="flex items-start gap-3 p-3 rounded-lg glass-strong">
-                        <button
-                          onClick={() => handleToggleFeatureComplete(feature)}
-                          className="mt-0.5"
-                        >
-                          {feature.is_completed ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Circle className="w-4 h-4 text-muted-foreground" />
-                          )}
-                        </button>
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium ${feature.is_completed ? "line-through text-muted-foreground" : ""}`}>
-                            {feature.title}
-                          </p>
-                          {feature.description && (
-                            <p className="text-xs text-muted-foreground mt-1">{feature.description}</p>
-                          )}
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {feature.priority}
-                        </Badge>
+                {Object.entries(suggestionsByType).map(([type, suggestions]) => (
+                  <Card key={type} className="glass">
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        {type === 'features' && <Lightbulb className="w-5 h-5 text-primary" />}
+                        {type === 'improvements' && <TrendingUp className="w-5 h-5 text-primary" />}
+                        {type === 'marketing' && <Target className="w-5 h-5 text-primary" />}
+                        {type === 'validation' && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                        <CardTitle className="capitalize">{type}</CardTitle>
                       </div>
-                    ))}
-                </CardContent>
-              </Card>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {suggestions.map((suggestion) => {
+                        // Parse the content field if it's a string
+                        let content = suggestion.content
+                        if (typeof content === 'string') {
+                          try {
+                            content = JSON.parse(content)
+                          } catch (e) {
+                            console.error('Error parsing suggestion content:', e)
+                          }
+                        }
+
+                        // Handle different content structures
+                        const isArray = Array.isArray(content)
+                        const items = isArray ? content : (content?.raw_response ? [{ description: content.raw_response }] : [])
+
+                        return (
+                          <div key={suggestion.id} className="space-y-3">
+                            <div className="flex items-start justify-between mb-3">
+                              <Badge variant="secondary" className="text-xs">
+                                {suggestion.confidence_score 
+                                  ? `${(suggestion.confidence_score * 100).toFixed(0)}% confidence`
+                                  : 'AI Generated'
+                                }
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(suggestion.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            {/* Display structured suggestions */}
+                            {items.length > 0 ? (
+                              <div className="space-y-3">
+                                {items.map((item: any, idx: number) => (
+                                  <div key={idx} className="p-4 rounded-lg glass-strong border border-border/50">
+                                    {item.title && (
+                                      <div className="flex items-start justify-between mb-2">
+                                        <h4 className="font-semibold text-sm">{item.title}</h4>
+                                        {item.priority && (
+                                          <Badge 
+                                            variant={
+                                              item.priority === 'high' ? 'default' : 
+                                              item.priority === 'medium' ? 'secondary' : 
+                                              'outline'
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {item.priority}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    )}
+                                    {item.description && (
+                                      <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {item.description}
+                                      </p>
+                                    )}
+                                    {(item.estimated_effort || item.effort) && (
+                                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                                        {item.estimated_effort && (
+                                          <span>Effort: {item.estimated_effort}/10</span>
+                                        )}
+                                        {item.effort && (
+                                          <span>Effort: {item.effort}</span>
+                                        )}
+                                        {item.impact && (
+                                          <span>Impact: {item.impact}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="p-4 rounded-lg glass-strong">
+                                <p className="text-sm text-muted-foreground">
+                                  No structured suggestions available
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </TabsContent>
 
