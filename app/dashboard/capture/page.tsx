@@ -1,6 +1,5 @@
 "use client"
 
-import { AppLayout } from "@/components/app-layout"
 import { PageHeader } from "@/components/page-header"
 import { Card } from "@/components/ui/card"
 import { PenTool, Mic, ImageIcon, FileText, Sparkles, Zap } from "lucide-react"
@@ -51,7 +50,7 @@ export default function CapturePage() {
   ]
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8">
         <PageHeader title="Capture Ideas" description="Choose how you'd like to capture your next big idea" />
 
@@ -140,6 +139,6 @@ export default function CapturePage() {
           ))}
         </div>
       </div>
-    </AppLayout>
+    </>
   )
 }

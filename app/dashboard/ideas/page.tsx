@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/empty-state"
-import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2 } from "lucide-react"
+import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2, Network } from "lucide-react"
 import Link from "next/link"
 import { IdeaAPI, CategoryAPI, type Idea, type Category, type PriorityEnum, type StatusEnum } from "@/lib/api/idea"
 import { useRouter } from "next/navigation"
@@ -66,12 +66,24 @@ export default function IdeasPage() {
   return (
     <>
       <PageHeader title="My Ideas" description={`${ideas.length} ideas captured`}>
-        <Button asChild className="gradient-primary hover:glow-primary transition-all duration-300">
-          <Link href="/dashboard/ideas/new">
-            <Plus className="w-4 h-4 mr-2" />
-            New Idea
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            asChild
+            className="transition-all duration-300 hover:border-primary/50"
+          >
+            <Link href="/dashboard/ideas/network">
+              <Network className="w-4 h-4 mr-2" />
+              View Network
+            </Link>
+          </Button>
+          <Button asChild className="gradient-primary hover:glow-primary transition-all duration-300">
+            <Link href="/dashboard/ideas/new">
+              <Plus className="w-4 h-4 mr-2" />
+              New Idea
+            </Link>
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="p-4 md:p-6 space-y-6">

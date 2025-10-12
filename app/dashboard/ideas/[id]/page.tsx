@@ -17,16 +17,27 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
   ArrowLeft, Edit2, Trash2, Save, X, Plus, Loader2,
   CheckCircle2, Circle, MoreVertical, Calendar, Target,
   TrendingUp, Zap, Users, ExternalLink, Sparkles, Brain,
-  Lightbulb, TrendingDown
+  Lightbulb, TrendingDown, Link as LinkIcon, Network,
+  GitBranch, ArrowRight
 } from "lucide-react"
 import Link from "next/link"
 import {
-  IdeaAPI, PhaseAPI, FeatureAPI, CompetitorAPI, AIAPI,
+  IdeaAPI, PhaseAPI, FeatureAPI, CompetitorAPI, AIAPI, RelatedIdeaAPI,
   type IdeaDetail, type Phase, type Feature, type IdeaUpdate,
-  type AISuggestion, type SuggestionTypeEnum
+  type AISuggestion, type SuggestionTypeEnum, type Idea,
+  type RelatedIdeaWithDetails, type RelationTypeEnum,
+  type RecommendationItem
 } from "@/lib/api/idea"
 
 export default function IdeaDetailPage() {
@@ -65,15 +76,40 @@ export default function IdeaDetailPage() {
   const [isScrapingCompetitors, setIsScrapingCompetitors] = useState(false)
   const [competitorData, setCompetitorData] = useState<any>(null)
 
+  // Related Ideas states
+  const [relatedIdeas, setRelatedIdeas] = useState<RelatedIdeaWithDetails[]>([])
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
+  const [showAddRelation, setShowAddRelation] = useState(false)
+  const [selectedTargetIdea, setSelectedTargetIdea] = useState("")
+  const [selectedRelationType, setSelectedRelationType] = useState<RelationTypeEnum>("related")
+  const [allIdeas, setAllIdeas] = useState<Idea[]>([])
+  const [activeTab, setActiveTab] = useState("phases")
+
   useEffect(() => {
-    loadIdeaDetail()
-    loadAISuggestions()
+    // Load all data in parallel for better performance
+    const loadAllData = async () => {
+      setIsLoading(true)
+      try {
+        // Load main data in parallel
+        await Promise.all([
+          loadIdeaDetail(),
+          loadAISuggestions(),
+          loadRelatedIdeas(),
+          loadAllIdeas()
+        ])
+      } catch (err) {
+        console.error('Error loading data:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadAllData()
   }, [ideaId])
 
   const loadIdeaDetail = async () => {
     try {
-      setIsLoading(true)
-      setError(null)
       const result = await IdeaAPI.getIdea(ideaId)
 
       const detail: IdeaDetail = {
@@ -86,17 +122,13 @@ export default function IdeaDetailPage() {
       setEditTitle(detail.idea.title)
       setEditDescription(detail.idea.description || "")
 
-      // Load competitor research
-      try {
-        const competitors = await CompetitorAPI.getCompetitorResearch(ideaId)
-        setCompetitorData(competitors)
-      } catch (err) {
-        console.log("No competitor data yet")
-      }
+      // Load competitor research (optional, don't block main load)
+      CompetitorAPI.getCompetitorResearch(ideaId)
+        .then(competitors => setCompetitorData(competitors))
+        .catch(() => console.log("No competitor data yet"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load idea")
-    } finally {
-      setIsLoading(false)
+      throw err // Re-throw to handle in Promise.all
     }
   }
 
@@ -105,7 +137,37 @@ export default function IdeaDetailPage() {
       const suggestions = await AIAPI.getSuggestions(ideaId)
       setAiSuggestions(suggestions)
     } catch (err) {
-      console.log("No AI suggestions yet")
+      // Silent fail - no suggestions yet
+    }
+  }
+
+  const loadRelatedIdeas = async () => {
+    try {
+      const related = await RelatedIdeaAPI.getRelatedIdeas(ideaId)
+      setRelatedIdeas(related)
+    } catch (err) {
+      // Silent fail - no related ideas yet
+    }
+  }
+
+  const loadAllIdeas = async () => {
+    try {
+      const result = await IdeaAPI.getIdeas({ limit: 100 })
+      setAllIdeas(result.ideas.filter(idea => idea.id !== ideaId))
+    } catch (err) {
+      // Silent fail - can add relations later
+    }
+  }
+
+  const loadRecommendations = async () => {
+    try {
+      setIsLoadingRecommendations(true)
+      const result = await RelatedIdeaAPI.getRecommendations(ideaId, 10, false)
+      setRecommendations(result.recommendations)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load recommendations")
+    } finally {
+      setIsLoadingRecommendations(false)
     }
   }
 
@@ -242,6 +304,51 @@ export default function IdeaDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to scrape competitors")
     } finally {
       setIsScrapingCompetitors(false)
+    }
+  }
+
+  const handleCreateRelation = async () => {
+    if (!selectedTargetIdea) return
+
+    try {
+      await RelatedIdeaAPI.createRelation({
+        source_idea_id: ideaId,
+        target_idea_id: selectedTargetIdea,
+        relation_type: selectedRelationType,
+        is_ai_suggested: false,
+      })
+      setShowAddRelation(false)
+      setSelectedTargetIdea("")
+      setSelectedRelationType("related")
+      await loadRelatedIdeas()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create relation")
+    }
+  }
+
+  const handleDeleteRelation = async (relationId: string) => {
+    if (!confirm("Remove this relationship?")) return
+
+    try {
+      await RelatedIdeaAPI.deleteRelation(relationId)
+      await loadRelatedIdeas()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete relation")
+    }
+  }
+
+  const handleCreateRecommendedRelation = async (targetIdeaId: string, relationType: RelationTypeEnum) => {
+    try {
+      await RelatedIdeaAPI.createRelation({
+        source_idea_id: ideaId,
+        target_idea_id: targetIdeaId,
+        relation_type: relationType,
+        is_ai_suggested: true,
+      })
+      await loadRelatedIdeas()
+      await loadRecommendations()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create relation")
     }
   }
 
@@ -436,6 +543,10 @@ export default function IdeaDetailPage() {
         <Tabs defaultValue="phases" className="space-y-6">
           <TabsList className="glass">
             <TabsTrigger value="phases">Phases & Features</TabsTrigger>
+            <TabsTrigger value="related">
+              <Network className="w-4 h-4 mr-2" />
+              Related Ideas
+            </TabsTrigger>
             <TabsTrigger value="ai">
               <Sparkles className="w-4 h-4 mr-2" />
               AI Suggestions
@@ -707,6 +818,248 @@ export default function IdeaDetailPage() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* Related Ideas Tab */}
+          <TabsContent value="related" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold">Related Ideas</h3>
+                <p className="text-sm text-muted-foreground">Connect ideas to discover patterns and opportunities</p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={loadRecommendations}
+                  disabled={isLoadingRecommendations}
+                  className="transition-all duration-300"
+                >
+                  {isLoadingRecommendations ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Get AI Suggestions
+                </Button>
+                <Dialog open={showAddRelation} onOpenChange={setShowAddRelation}>
+                  <DialogTrigger asChild>
+                    <Button className="gradient-primary">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Relation
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="glass">
+                    <DialogHeader>
+                      <DialogTitle>Add Related Idea</DialogTitle>
+                      <DialogDescription>
+                        Connect this idea with another one to track relationships
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Idea</label>
+                        <Select value={selectedTargetIdea} onValueChange={setSelectedTargetIdea}>
+                          <SelectTrigger className="glass">
+                            <SelectValue placeholder="Choose an idea..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allIdeas.map((idea) => (
+                              <SelectItem key={idea.id} value={idea.id}>
+                                {idea.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Relationship Type</label>
+                        <Select value={selectedRelationType} onValueChange={(v) => setSelectedRelationType(v as RelationTypeEnum)}>
+                          <SelectTrigger className="glass">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="related">Related</SelectItem>
+                            <SelectItem value="depends_on">Depends On</SelectItem>
+                            <SelectItem value="blocks">Blocks</SelectItem>
+                            <SelectItem value="similar">Similar</SelectItem>
+                            <SelectItem value="inspired_by">Inspired By</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleCreateRelation} className="gradient-primary" disabled={!selectedTargetIdea}>
+                          <Save className="w-4 h-4 mr-2" />
+                          Create Relation
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowAddRelation(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            {/* Existing Relations */}
+            {relatedIdeas.length > 0 && (
+              <Card className="glass">
+                <CardHeader>
+                  <CardTitle className="text-base">Connected Ideas</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {relatedIdeas.map((related) => (
+                    <div
+                      key={related.id}
+                      className="flex items-start gap-3 p-4 rounded-lg glass-strong border border-border/50 hover:border-primary/30 transition-all"
+                    >
+                      <div className="flex-shrink-0 mt-1">
+                        {related.relation_type === 'depends_on' && <GitBranch className="w-5 h-5 text-orange-500" />}
+                        {related.relation_type === 'blocks' && <X className="w-5 h-5 text-red-500" />}
+                        {related.relation_type === 'similar' && <LinkIcon className="w-5 h-5 text-blue-500" />}
+                        {related.relation_type === 'inspired_by' && <Lightbulb className="w-5 h-5 text-yellow-500" />}
+                        {related.relation_type === 'related' && <ArrowRight className="w-5 h-5 text-primary" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <Link 
+                              href={`/dashboard/ideas/${related.idea.id}`}
+                              className="font-medium hover:text-primary transition-colors"
+                            >
+                              {related.idea.title}
+                            </Link>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {related.idea.description || "No description"}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteRelation(related.id)}
+                            className="text-destructive hover:bg-destructive/10 flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {related.relation_type.replace('_', ' ')}
+                          </Badge>
+                          {related.is_ai_suggested && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              AI Suggested
+                            </Badge>
+                          )}
+                          {related.confidence_score && (
+                            <Badge variant="secondary" className="text-xs">
+                              {(related.confidence_score * 100).toFixed(0)}% match
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Recommendations */}
+            {recommendations.length > 0 && (
+              <Card className="glass border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-base">AI Recommendations</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Ideas that might be related based on semantic similarity
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recommendations.map((rec) => (
+                    <div
+                      key={rec.idea.id}
+                      className="flex items-start gap-3 p-4 rounded-lg glass-strong border border-border/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <Link 
+                            href={`/dashboard/ideas/${rec.idea.id}`}
+                            className="font-medium hover:text-primary transition-colors"
+                          >
+                            {rec.idea.title}
+                          </Link>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Badge variant="secondary" className="text-xs">
+                              {(rec.similarity_score * 100).toFixed(0)}% match
+                            </Badge>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          {rec.idea.description || "No description"}
+                        </p>
+                        {!rec.is_already_connected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCreateRecommendedRelation(rec.idea.id, rec.recommended_relation_type)}
+                            className="text-xs"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Connect as {rec.recommended_relation_type.replace('_', ' ')}
+                          </Button>
+                        )}
+                        {rec.is_already_connected && (
+                          <Badge variant="outline" className="text-xs">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Already connected
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Empty State */}
+            {relatedIdeas.length === 0 && recommendations.length === 0 && (
+              <Card className="glass">
+                <CardContent className="p-12 text-center">
+                  <Network className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No related ideas yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Connect this idea with others to track dependencies and discover patterns
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={() => setShowAddRelation(true)} className="gradient-primary">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Relation
+                    </Button>
+                    <Button variant="outline" onClick={loadRecommendations} disabled={isLoadingRecommendations}>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Get AI Suggestions
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* View Graph Button */}
+            {relatedIdeas.length > 0 && (
+              <Button
+                variant="outline"
+                asChild
+                className="w-full"
+              >
+                <Link href={`/dashboard/ideas/network?center=${ideaId}`}>
+                  <Network className="w-4 h-4 mr-2" />
+                  View in Network Graph
+                </Link>
+              </Button>
             )}
           </TabsContent>
 

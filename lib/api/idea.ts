@@ -2,8 +2,77 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export type PriorityEnum = 'low' | 'medium' | 'high';
 export type StatusEnum = 'new' | 'in_progress' | 'completed' | 'archived' | 'paused';
-
 export type SuggestionTypeEnum = 'features' | 'improvements' | 'marketing' | 'validation';
+export type RelationTypeEnum = 'related' | 'depends_on' | 'blocks' | 'similar' | 'inspired_by';
+
+// ==================== RELATED IDEAS TYPES ====================
+
+export interface RelatedIdeaCreate {
+  source_idea_id: string;
+  target_idea_id: string;
+  relation_type?: RelationTypeEnum;
+  is_ai_suggested?: boolean;
+  confidence_score?: number;
+}
+
+export interface RelatedIdeaUpdate {
+  relation_type?: RelationTypeEnum;
+  is_ai_suggested?: boolean;
+}
+
+export interface RelatedIdea {
+  id: string;
+  source_idea_id: string;
+  target_idea_id: string;
+  relation_type: RelationTypeEnum;
+  is_ai_suggested: boolean;
+  confidence_score?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelatedIdeaWithDetails extends RelatedIdea {
+  idea: Idea;
+}
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  description?: string;
+  priority: PriorityEnum;
+  status: StatusEnum;
+  tags: string[];
+  overall_score?: number;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  relation_type: RelationTypeEnum;
+  is_ai_suggested: boolean;
+  confidence_score?: number;
+}
+
+export interface IdeaGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  center_node_id: string;
+}
+
+export interface RecommendationItem {
+  idea: Idea;
+  similarity_score: number;
+  recommended_relation_type: RelationTypeEnum;
+  is_already_connected: boolean;
+}
+
+export interface RecommendationList {
+  recommendations: RecommendationItem[];
+  total: number;
+  auto_created_count?: number;
+}
+
+// ==================== EXISTING TYPES ====================
 
 export interface AIGenerateRequest {
   idea_id: string;
@@ -209,12 +278,6 @@ export interface PaginatedIdeas {
   has_more: boolean;
 }
 
-export interface IdeaDetail {
-  idea: Idea;
-  phases: Phase[];
-  features: Feature[];
-}
-
 export interface CompetitorScrapeRequest {
   idea_id: string;
   urls: string[];
@@ -238,6 +301,11 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }));
     throw new Error(error.detail || 'Request failed');
+  }
+
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return null;
   }
 
   return response.json();
@@ -292,10 +360,10 @@ export class IdeaAPI {
     return result.data;
   }
 
-static async getIdea(ideaId: string): Promise<IdeaDetailResponse> {
-  const result = await fetchWithAuth(`${API_URL}/api/ideas/${ideaId}`);
-  return result.data;
-}
+  static async getIdea(ideaId: string): Promise<IdeaDetailResponse> {
+    const result = await fetchWithAuth(`${API_URL}/api/ideas/${ideaId}`);
+    return result.data;
+  }
 
   static async createIdea(data: IdeaCreate): Promise<Idea> {
     const result = await fetchWithAuth(`${API_URL}/api/ideas`, {
@@ -317,6 +385,53 @@ static async getIdea(ideaId: string): Promise<IdeaDetailResponse> {
     await fetchWithAuth(`${API_URL}/api/ideas/${ideaId}`, {
       method: 'DELETE',
     });
+  }
+}
+
+// ==================== RELATED IDEAS API ====================
+
+export class RelatedIdeaAPI {
+  static async createRelation(data: RelatedIdeaCreate): Promise<RelatedIdea> {
+    const result = await fetchWithAuth(`${API_URL}/api/related-ideas`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.data.relation;
+  }
+
+  static async getRelatedIdeas(ideaId: string): Promise<RelatedIdeaWithDetails[]> {
+    const result = await fetchWithAuth(`${API_URL}/api/related-ideas/${ideaId}`);
+    return result.data.related_ideas;
+  }
+
+  static async getIdeaGraph(ideaId: string, depth: number = 2): Promise<IdeaGraph> {
+    const result = await fetchWithAuth(`${API_URL}/api/related-ideas/graph/${ideaId}?depth=${depth}`);
+    return result.data.graph;
+  }
+
+  static async updateRelation(relationId: string, data: RelatedIdeaUpdate): Promise<RelatedIdea> {
+    const result = await fetchWithAuth(`${API_URL}/api/related-ideas/${relationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return result.data.relation;
+  }
+
+  static async deleteRelation(relationId: string): Promise<void> {
+    await fetchWithAuth(`${API_URL}/api/related-ideas/${relationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  static async getRecommendations(
+    ideaId: string,
+    topN: number = 5,
+    autoCreate: boolean = false
+  ): Promise<RecommendationList> {
+    const result = await fetchWithAuth(
+      `${API_URL}/api/related-ideas/recommendations/${ideaId}?top_n=${topN}&auto_create=${autoCreate}`
+    );
+    return result.data;
   }
 }
 
@@ -406,6 +521,8 @@ export class CompetitorAPI {
     return result.data;
   }
 }
+
+// ==================== AI API ====================
 
 export class AIAPI {
   static async generateSuggestions(data: AIGenerateRequest): Promise<AISuggestion> {

@@ -1,77 +1,149 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/empty-state"
 import { AchievementsSection } from "@/components/achievements-section"
-import { Plus, Search, Clock, Lightbulb, TrendingUp, Users, Calendar, Sparkles } from "lucide-react"
+import { Plus, Search, Clock, Lightbulb, TrendingUp, Users, Calendar, Sparkles, Loader2 } from "lucide-react"
 import Link from "next/link"
-
-// Mock data for recent ideas
-const recentIdeas = [
-  {
-    id: 1,
-    title: "AI-Powered Recipe Generator",
-    description: "An app that creates personalized recipes based on dietary preferences and available ingredients.",
-    tags: ["AI", "Food", "Mobile App"],
-    date: "2024-01-15",
-    category: "Product Idea",
-  },
-  {
-    id: 2,
-    title: "Sustainable Packaging Solution",
-    description: "Biodegradable packaging made from agricultural waste for e-commerce businesses.",
-    tags: ["Sustainability", "Business", "Innovation"],
-    date: "2024-01-14",
-    category: "Business Idea",
-  },
-  {
-    id: 3,
-    title: "Virtual Study Groups Platform",
-    description: "Connect students worldwide for collaborative learning and peer support.",
-    tags: ["Education", "Social", "Platform"],
-    date: "2024-01-13",
-    category: "Social Impact",
-  },
-  {
-    id: 4,
-    title: "Smart Home Energy Optimizer",
-    description: "IoT system that automatically adjusts home energy usage based on occupancy and weather.",
-    tags: ["IoT", "Energy", "Smart Home"],
-    date: "2024-01-12",
-    category: "Technology",
-  },
-]
-
-const stats = [
-  {
-    title: "Total Ideas",
-    value: "24",
-    icon: Lightbulb,
-    change: "+3 this week",
-  },
-  {
-    title: "Ideas This Month",
-    value: "8",
-    icon: TrendingUp,
-    change: "+2 from last month",
-  },
-  {
-    title: "Categories",
-    value: "6",
-    icon: Users,
-    change: "Technology, Business, Social",
-  },
-]
+import { IdeaAPI, Idea, PriorityEnum, StatusEnum } from "@/lib/api/idea"
+import { UserAPI, UserProfile, UserStats } from "@/lib/api/user"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
-  const [hasIdeas, setHasIdeas] = useState(true)
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [recentIdeas, setRecentIdeas] = useState<Idea[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Fetch user profile
+      const profile = await UserAPI.getProfile()
+      setUserProfile(profile)
+
+      // Fetch user stats
+      const stats = await UserAPI.getStats()
+      setUserStats(stats)
+
+      // Fetch recent ideas (limit to 4 for dashboard)
+      const ideasData = await IdeaAPI.getIdeas({
+        limit: 4,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      })
+      setRecentIdeas(ideasData.ideas)
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
+
+      // Check if unauthorized
+      if (err instanceof Error && err.message.includes('401')) {
+        router.push('/login')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  const getCategoryLabel = (priority: PriorityEnum, status: StatusEnum) => {
+    if (status === 'completed') return 'Completed'
+    if (status === 'in_progress') return 'In Progress'
+    if (status === 'paused') return 'Paused'
+    if (status === 'archived') return 'Archived'
+    return 'New Idea'
+  }
+
+  const getTopCategories = () => {
+    if (!userStats || userStats.collaborations_count === 0) {
+      return 'No collaborations yet'
+    }
+    return `${userStats.collaborations_count} ${userStats.collaborations_count === 1 ? 'collaboration' : 'collaborations'}`
+  }
+
+  const hasIdeas = recentIdeas.length > 0
+
+  const stats = userStats ? [
+    {
+      title: "Total Ideas",
+      value: (userStats.ideas_created || 0).toString(),
+      icon: Lightbulb,
+      change: `+${userStats.ideas_created || 0} created`,
+    },
+    {
+      title: "Ideas Completed",
+      value: (userStats.ideas_completed || 0).toString(),
+      icon: TrendingUp,
+      change: `${userStats.ideas_completed || 0} completed`,
+    },
+    {
+      title: "Current Streak",
+      value: (userStats.current_streak || 0).toString(),
+      icon: Users,
+      change: `${userStats.longest_streak || 0} longest`,
+    },
+  ] : []
+
+  if (isLoading) {
+    return (
+      <>
+        <PageHeader
+          title="Loading..."
+          description="Fetching your dashboard data"
+        />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </>
+    )
+  }
+
+  if (error) {
+    return (
+      <>
+        <PageHeader
+          title="Error"
+          description="Failed to load dashboard"
+        />
+        <div className="p-4 md:p-6">
+          <Card className="glass">
+            <CardContent className="p-6">
+              <p className="text-destructive">{error}</p>
+              <Button onClick={fetchDashboardData} className="mt-4">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
-      <PageHeader title="Welcome back, Alex!" description="Ready to capture your next big idea?" />
+      <PageHeader
+        title={`Welcome back${userProfile?.display_name ? `, ${userProfile.display_name}` : ''}!`}
+        description="Ready to capture your next big idea?"
+      />
 
       <div className="p-4 md:p-6 space-y-6 md:space-y-8">
         {/* Quick Actions */}
@@ -134,58 +206,58 @@ export default function DashboardPage() {
           <section className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Your Progress</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {hasIdeas
+              {hasIdeas && userStats
                 ? stats.map((stat, index) => (
-                    <Card key={index} className="glass">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground">{stat.title}</p>
-                            <p className="text-2xl font-bold">{stat.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-                          </div>
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <stat.icon className="w-5 h-5 text-primary" />
-                          </div>
+                  <Card key={index} className="glass">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">{stat.title}</p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <stat.icon className="w-5 h-5 text-primary" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
                 : [
-                    {
-                      title: "Total Ideas",
-                      value: "0",
-                      icon: Lightbulb,
-                      change: "Start your journey",
-                    },
-                    {
-                      title: "Ideas This Month",
-                      value: "0",
-                      icon: TrendingUp,
-                      change: "Create your first idea",
-                    },
-                    {
-                      title: "Categories",
-                      value: "0",
-                      icon: Users,
-                      change: "Organize your thoughts",
-                    },
-                  ].map((stat, index) => (
-                    <Card key={index} className="glass">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground">{stat.title}</p>
-                            <p className="text-2xl font-bold">{stat.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-                          </div>
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <stat.icon className="w-5 h-5 text-primary" />
-                          </div>
+                  {
+                    title: "Total Ideas",
+                    value: "0",
+                    icon: Lightbulb,
+                    change: "Start your journey",
+                  },
+                  {
+                    title: "Ideas This Month",
+                    value: "0",
+                    icon: TrendingUp,
+                    change: "Create your first idea",
+                  },
+                  {
+                    title: "Categories",
+                    value: "0",
+                    icon: Users,
+                    change: "Organize your thoughts",
+                  },
+                ].map((stat, index) => (
+                  <Card key={index} className="glass">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">{stat.title}</p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <stat.icon className="w-5 h-5 text-primary" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
           </section>
 
@@ -209,42 +281,43 @@ export default function DashboardPage() {
           {hasIdeas ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {recentIdeas.map((idea) => (
-                <Card
-                  key={idea.id}
-                  className="glass hover:glass-strong transition-all duration-300 cursor-pointer group"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-base group-hover:text-primary transition-colors duration-200">
-                          {idea.title}
-                        </CardTitle>
-                        <CardDescription className="text-sm mt-1">{idea.description}</CardDescription>
+                <Link key={idea.id} href={`/ideas/${idea.id}`}>
+                  <Card className="glass hover:glass-strong transition-all duration-300 cursor-pointer group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-base group-hover:text-primary transition-colors duration-200">
+                            {idea.title}
+                          </CardTitle>
+                          <CardDescription className="text-sm mt-1">
+                            {idea.description || 'No description'}
+                          </CardDescription>
+                        </div>
+                        <div className="ml-4 text-xs text-muted-foreground flex items-center whitespace-nowrap">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {formatDate(idea.created_at)}
+                        </div>
                       </div>
-                      <div className="ml-4 text-xs text-muted-foreground flex items-center whitespace-nowrap">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(idea.date).toLocaleDateString()}
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap gap-1">
+                          {idea.tags.slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full whitespace-nowrap">
+                          {getCategoryLabel(idea.priority, idea.status)}
+                        </span>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1">
-                        {idea.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full whitespace-nowrap">
-                        {idea.category}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           ) : (
