@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/empty-state"
 import { AchievementsSection } from "@/components/achievements-section"
-import { Plus, Search, Clock, Lightbulb, TrendingUp, Users, Calendar, Sparkles, Loader2 } from "lucide-react"
+import { Plus, Search, Clock, Lightbulb, TrendingUp, Target, Calendar, Sparkles, Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { IdeaAPI, Idea, PriorityEnum, StatusEnum } from "@/lib/api/idea"
 import { UserAPI, UserProfile, UserStats } from "@/lib/api/user"
@@ -37,9 +37,9 @@ export default function DashboardPage() {
       const stats = await UserAPI.getStats()
       setUserStats(stats)
 
-      // Fetch recent ideas (limit to 4 for dashboard)
+      // Fetch recent ideas (limit to 6 for dashboard)
       const ideasData = await IdeaAPI.getIdeas({
-        limit: 4,
+        limit: 6,
         sort_by: 'created_at',
         sort_order: 'desc',
       })
@@ -65,19 +65,24 @@ export default function DashboardPage() {
     })
   }
 
-  const getCategoryLabel = (priority: PriorityEnum, status: StatusEnum) => {
-    if (status === 'completed') return 'Completed'
-    if (status === 'in_progress') return 'In Progress'
-    if (status === 'paused') return 'Paused'
-    if (status === 'archived') return 'Archived'
-    return 'New Idea'
+  const getStatusBadge = (status: StatusEnum) => {
+    const statusConfig = {
+      completed: { label: 'Completed', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+      in_progress: { label: 'In Progress', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+      paused: { label: 'Paused', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
+      archived: { label: 'Archived', className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
+      new: { label: 'New', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+    }
+    return statusConfig[status] || statusConfig.new
   }
 
-  const getTopCategories = () => {
-    if (!userStats || userStats.collaborations_count === 0) {
-      return 'No collaborations yet'
+  const getPriorityIcon = (priority: PriorityEnum) => {
+    const priorityConfig = {
+      high: '🔴',
+      medium: '🟡',
+      low: '🟢',
     }
-    return `${userStats.collaborations_count} ${userStats.collaborations_count === 1 ? 'collaboration' : 'collaborations'}`
+    return priorityConfig[priority] || '⚪'
   }
 
   const hasIdeas = recentIdeas.length > 0
@@ -87,19 +92,25 @@ export default function DashboardPage() {
       title: "Total Ideas",
       value: (userStats.ideas_created || 0).toString(),
       icon: Lightbulb,
-      change: `+${userStats.ideas_created || 0} created`,
+      change: `${userStats.ideas_completed || 0} completed`,
+      color: "text-yellow-500",
+      bgColor: "bg-yellow-500/10",
     },
     {
-      title: "Ideas Completed",
-      value: (userStats.ideas_completed || 0).toString(),
+      title: "Current Level",
+      value: (userStats.current_level || 1).toString(),
       icon: TrendingUp,
-      change: `${userStats.ideas_completed || 0} completed`,
+      change: `${userStats.total_xp || 0} total XP`,
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
     },
     {
       title: "Current Streak",
-      value: (userStats.current_streak || 0).toString(),
-      icon: Users,
-      change: `${userStats.longest_streak || 0} longest`,
+      value: `${userStats.current_streak || 0} days`,
+      icon: Target,
+      change: `${userStats.longest_streak || 0} days longest`,
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
     },
   ] : []
 
@@ -142,7 +153,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title={`Welcome back${userProfile?.display_name ? `, ${userProfile.display_name}` : ''}!`}
-        description="Ready to capture your next big idea?"
+        description="Track your progress and manage your ideas"
       />
 
       <div className="p-4 md:p-6 space-y-6 md:space-y-8">
@@ -206,58 +217,22 @@ export default function DashboardPage() {
           <section className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Your Progress</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {hasIdeas && userStats
-                ? stats.map((stat, index) => (
-                  <Card key={index} className="glass">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{stat.title}</p>
-                          <p className="text-2xl font-bold">{stat.value}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <stat.icon className="w-5 h-5 text-primary" />
-                        </div>
+              {stats.map((stat, index) => (
+                <Card key={index} className="glass">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
+                        <p className="text-3xl font-bold mb-1">{stat.value}</p>
+                        <p className="text-xs text-muted-foreground">{stat.change}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-                : [
-                  {
-                    title: "Total Ideas",
-                    value: "0",
-                    icon: Lightbulb,
-                    change: "Start your journey",
-                  },
-                  {
-                    title: "Ideas This Month",
-                    value: "0",
-                    icon: TrendingUp,
-                    change: "Create your first idea",
-                  },
-                  {
-                    title: "Categories",
-                    value: "0",
-                    icon: Users,
-                    change: "Organize your thoughts",
-                  },
-                ].map((stat, index) => (
-                  <Card key={index} className="glass">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{stat.title}</p>
-                          <p className="text-2xl font-bold">{stat.value}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <stat.icon className="w-5 h-5 text-primary" />
-                        </div>
+                      <div className={`w-12 h-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                        <stat.icon className={`w-6 h-6 ${stat.color}`} />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </section>
 
@@ -279,46 +254,73 @@ export default function DashboardPage() {
           </div>
 
           {hasIdeas ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {recentIdeas.map((idea) => (
-                <Link key={idea.id} href={`/ideas/${idea.id}`}>
-                  <Card className="glass hover:glass-strong transition-all duration-300 cursor-pointer group">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-base group-hover:text-primary transition-colors duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentIdeas.map((idea) => {
+                const statusBadge = getStatusBadge(idea.status)
+                return (
+                  <Link key={idea.id} href={`/ideas/${idea.id}`}>
+                    <Card className="glass hover:glass-strong transition-all duration-300 cursor-pointer group h-full">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <CardTitle className="text-base group-hover:text-primary transition-colors duration-200 line-clamp-2 flex-1">
                             {idea.title}
                           </CardTitle>
-                          <CardDescription className="text-sm mt-1">
-                            {idea.description || 'No description'}
-                          </CardDescription>
+                          <span className="text-lg flex-shrink-0">
+                            {getPriorityIcon(idea.priority)}
+                          </span>
                         </div>
-                        <div className="ml-4 text-xs text-muted-foreground flex items-center whitespace-nowrap">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {formatDate(idea.created_at)}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Status and Date */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-xs px-2 py-1 rounded-full border ${statusBadge.className}`}>
+                            {statusBadge.label}
+                          </span>
+                          <div className="text-xs text-muted-foreground flex items-center">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {formatDate(idea.created_at)}
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-wrap gap-1">
-                          {idea.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full whitespace-nowrap">
-                          {getCategoryLabel(idea.priority, idea.status)}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+
+                        {/* Progress Bar (if applicable) */}
+                        {idea.status === 'in_progress' && idea.progress_percentage !== undefined && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Progress</span>
+                              <span className="font-medium">{idea.progress_percentage}%</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${idea.progress_percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tags */}
+                        {idea.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {idea.tags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {idea.tags.length > 3 && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+                                +{idea.tags.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
             </div>
           ) : (
             <EmptyState
