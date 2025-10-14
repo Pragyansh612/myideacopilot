@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/empty-state"
-import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2, Network } from "lucide-react"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2, Network, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { IdeaAPI, CategoryAPI, type Idea, type Category, type PriorityEnum, type StatusEnum } from "@/lib/api/idea"
 import { useRouter } from "next/navigation"
@@ -23,6 +25,8 @@ export default function IdeasPage() {
   const [sortBy, setSortBy] = useState("created_at")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [error, setError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -56,6 +60,25 @@ export default function IdeasPage() {
 
   const handleIdeaClick = (ideaId: string) => {
     router.push(`/dashboard/ideas/${ideaId}`)
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent, ideaId: string) => {
+    e.stopPropagation()
+    setIdeaToDelete(ideaId)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!ideaToDelete) return
+
+    try {
+      await IdeaAPI.deleteIdea(ideaToDelete)
+      setIdeas(ideas.filter(idea => idea.id !== ideaToDelete))
+      setDeleteDialogOpen(false)
+      setIdeaToDelete(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete idea")
+    }
   }
 
   const categoryOptions = [
@@ -94,9 +117,42 @@ export default function IdeasPage() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <>
+            {/* Search and Filters Skeleton */}
+            <div className="glass p-4 rounded-xl">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <Skeleton className="h-10 flex-1" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-10 w-40" />
+                  <Skeleton className="h-10 w-32" />
+                  <Skeleton className="h-10 w-20" />
+                </div>
+              </div>
+            </div>
+
+            {/* Ideas Grid Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i} className="glass">
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                      <Skeleton className="h-6 w-16" />
+                      <Skeleton className="h-6 w-20" />
+                    </div>
+                    <div className="flex justify-between">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-6 w-16" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         ) : ideas.length === 0 && !searchQuery && selectedCategory === "all" ? (
           <EmptyState
             icon={Lightbulb}
@@ -207,10 +263,10 @@ export default function IdeasPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
-                          onClick={(e) => e.stopPropagation()}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => handleDeleteClick(e, idea.id)}
                         >
-                          <MoreHorizontal className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </CardHeader>
@@ -259,6 +315,16 @@ export default function IdeasPage() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Idea"
+        description="Are you sure you want to delete this idea? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }
