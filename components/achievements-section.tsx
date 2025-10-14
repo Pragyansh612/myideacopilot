@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Lock, Loader2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Trophy, Lock } from "lucide-react"
 import { AchievementAPI, AchievementResponse } from "@/lib/api/achievement"
 
 export function AchievementsSection() {
@@ -19,6 +20,7 @@ export function AchievementsSection() {
     try {
       setIsLoading(true)
       const data = await AchievementAPI.getUserAchievements()
+      console.log('Achievements data:', data) // Debug log
       setAchievements(data.slice(0, 3)) // Show only first 3
     } catch (err) {
       console.error('Error fetching achievements:', err)
@@ -37,10 +39,17 @@ export function AchievementsSection() {
             Recent Achievements
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
+        <CardContent className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50">
+              <Skeleton className="w-8 h-8 rounded" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-3 w-full mb-2" />
+                <Skeleton className="h-5 w-16" />
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     )
@@ -56,7 +65,7 @@ export function AchievementsSection() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         </CardContent>
       </Card>
     )
@@ -95,30 +104,31 @@ export function AchievementsSection() {
         {achievements.map((achievement) => (
           <div
             key={achievement.id}
-            className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+            className="flex items-start space-x-3 p-3 rounded-lg bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 hover:border-yellow-500/40 transition-colors"
           >
-            <div className="text-2xl">{achievement.definition?.icon || '🏆'}</div>
+            <div className="text-2xl flex-shrink-0">{achievement.icon || '🏆'}</div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">
-                {achievement.definition?.name || achievement.achievement_code}
+                {achievement.title}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {achievement.definition?.description || 'Achievement unlocked!'}
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                {achievement.description}
               </p>
-              <Badge variant="secondary" className="mt-2 text-xs">
-                +{achievement.definition?.xp_reward || 0} XP
+              <Badge variant="secondary" className="mt-2 text-xs bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30">
+                +{achievement.xp_awarded} XP
               </Badge>
             </div>
           </div>
         ))}
         
-        {achievements.length > 0 && (
-          <div className="pt-2">
-            <p className="text-xs text-center text-muted-foreground">
-              Keep going to unlock more! 🎯
-            </p>
-          </div>
-        )}
+        <div className="pt-2 text-center">
+          <p className="text-xs text-muted-foreground">
+            {achievements.length === 1 ? '1 achievement unlocked!' : `${achievements.length} achievements unlocked!`}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Keep going to unlock more! 🎯
+          </p>
+        </div>
       </CardContent>
     </Card>
   )

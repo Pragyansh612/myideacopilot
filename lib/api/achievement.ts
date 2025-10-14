@@ -3,23 +3,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export interface Achievement {
   id: string;
   user_id: string;
-  achievement_code: string;
+  achievement_type: string;
+  title: string;
+  description: string;
+  icon: string;
+  xp_awarded: number;
   unlocked_at: string;
-  created_at: string;
+  related_idea_id?: string | null;
 }
 
 export interface AchievementDefinition {
-  code: string;
-  name: string;
+  achievement_type: string;
+  title: string;
   description: string;
   icon: string;
-  xp_reward: number;
-  category: string;
-  criteria: Record<string, any>;
+  xp_awarded: number;
+  unlock_condition: string;
 }
 
 export interface AchievementResponse extends Achievement {
-  definition?: AchievementDefinition;
+  // All fields are already included from Achievement
 }
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {

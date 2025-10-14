@@ -126,7 +126,7 @@ export default function NewIdeaPage() {
       const ideaData: IdeaCreate = {
         title: title.trim(),
         description: description.trim() || undefined,
-        tags: tags.length > 0 ? tags : undefined,
+        tags: tags.length > 0 ? tags : [],
         category_id: categoryId || undefined,
         priority,
         effort_score: typeof effortScore === "number" ? effortScore : undefined,
