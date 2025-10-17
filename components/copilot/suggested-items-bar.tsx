@@ -56,11 +56,12 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
 
   return (
     <div className="fixed bottom-24 right-6 max-w-sm space-y-2 pointer-events-auto z-40 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="flex items-center gap-2 px-2">
-        <div className="flex items-center gap-1">
-          <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-          <span className="text-xs font-semibold text-muted-foreground">AI Suggestions</span>
-        </div>
+      <div className="flex items-center gap-2 px-2 mb-1">
+        <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+        <span className="text-xs font-bold text-primary">AI SUGGESTIONS</span>
+        <span className="text-xs font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+          {remainingItems.length}
+        </span>
       </div>
 
       {remainingItems.map((item, idx) => {
@@ -73,7 +74,7 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
         return (
           <Card 
             key={`${item.type}-${item.title}`}
-            className="glass hover:glass-strong transition-all border-primary/20 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300"
+            className="glass hover:glass-strong transition-all border-primary/30 shadow-lg border-l-4 border-l-primary animate-in fade-in slide-in-from-bottom-2 duration-300"
           >
             <CardContent className="p-3 space-y-2">
               <div className="flex items-start gap-2">
@@ -85,7 +86,7 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm line-clamp-1">{item.title}</h4>
+                  <h4 className="font-semibold text-sm line-clamp-1 text-foreground">{item.title}</h4>
                   {item.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                       {item.description}
@@ -94,33 +95,36 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {item.priority && (
-                  <Badge 
-                    variant={
-                      item.priority === 'high' ? 'default' :
-                      item.priority === 'medium' ? 'secondary' :
-                      'outline'
-                    }
-                    className="text-xs"
-                  >
-                    {item.priority}
+              <div className="flex items-center gap-2 flex-wrap justify-between">
+                <div className="flex items-center gap-1">
+                  {item.priority && (
+                    <Badge 
+                      variant={
+                        item.priority === 'high' ? 'default' :
+                        item.priority === 'medium' ? 'secondary' :
+                        'outline'
+                      }
+                      className="text-xs"
+                    >
+                      {item.priority}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-xs">
+                    {item.type}
                   </Badge>
-                )}
-                <div className="ml-auto flex gap-1">
-                  <Button
-                    size="sm"
-                    className="gradient-primary h-7 px-2"
-                    onClick={() => handleCreateItem(item, originalIndex)}
-                    disabled={isCreating}
-                  >
-                    {isCreating ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Plus className="w-3 h-3" />
-                    )}
-                  </Button>
                 </div>
+                <Button
+                  size="sm"
+                  className="gradient-primary h-7 px-2"
+                  onClick={() => handleCreateItem(item, originalIndex)}
+                  disabled={isCreating}
+                >
+                  {isCreating ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Plus className="w-3 h-3" />
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -128,9 +132,9 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
       })}
 
       {remainingItems.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center px-2">
-          Click to create from AI suggestions
-        </p>
+        <div className="text-xs text-muted-foreground text-center px-2 py-1 bg-muted/50 rounded">
+          Click + to create from AI
+        </div>
       )}
     </div>
   )

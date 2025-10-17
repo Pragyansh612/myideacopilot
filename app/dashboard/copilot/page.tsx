@@ -26,7 +26,8 @@ import {
   Loader2,
   Paperclip,
   History,
-  Clock
+  Clock,
+  AlertCircle
 } from "lucide-react"
 import { CopilotAPI, ChatRequest, ChatHistoryItem } from "@/lib/api/copilot"
 import { IdeaAPI, Idea, type SuggestedItem } from "@/lib/api/idea"
@@ -96,6 +97,7 @@ export default function CopilotPage() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loadingIdeas, setLoadingIdeas] = useState(false)
+  const [ideasError, setIdeasError] = useState<string | null>(null)
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyTotal, setHistoryTotal] = useState(0)
@@ -129,14 +131,20 @@ export default function CopilotPage() {
 
   const loadIdeas = async () => {
     setLoadingIdeas(true)
+    setIdeasError(null)
     try {
       const result = await IdeaAPI.getIdeas({ limit: 100 })
       setIdeas(result.ideas)
       if (result.ideas.length > 0 && !selectedIdeaId) {
         setSelectedIdeaId(result.ideas[0].id)
       }
+      if (result.ideas.length === 0) {
+        setIdeasError("No ideas found. Create your first idea to get started!")
+      }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to load ideas"
       console.error('Failed to load ideas:', error)
+      setIdeasError(errorMsg)
     } finally {
       setLoadingIdeas(false)
     }
@@ -283,6 +291,13 @@ export default function CopilotPage() {
       
       if (response.suggested_items && response.suggested_items.length > 0) {
         setSuggestedItems(response.suggested_items)
+        // If no idea is selected, select the first one for the suggestions bar
+        if (!selectedIdeaId && context.length > 0) {
+          const ideaContext = context.find(c => c.type === 'idea')
+          if (ideaContext) {
+            setSelectedIdeaId(ideaContext.id)
+          }
+        }
       }
     } catch (error) {
       console.error('Chat error:', error)
@@ -526,6 +541,7 @@ export default function CopilotPage() {
                     loadIdeas()
                     setShowContextDialog(true)
                   }}
+                  title="Attach context (idea, feature, etc.)"
                 >
                   <Paperclip className="w-4 h-4" />
                   {context.length > 0 && (
@@ -544,56 +560,60 @@ export default function CopilotPage() {
                 </DialogHeader>
                 <ScrollArea className="h-[60vh] pr-4">
                   <div className="space-y-4">
+                    {ideasError && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-amber-600">{ideasError}</p>
+                      </div>
+                    )}
                     {loadingIdeas ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : ideas.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">No ideas found</p>
                       </div>
                     ) : (
                       <div>
                         <h4 className="font-medium mb-3 flex items-center gap-2 sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
                           <IdeaIcon className="w-4 h-4 text-blue-500" />
-                          Ideas
+                          Ideas ({ideas.length})
                         </h4>
                         <div className="space-y-2">
-                          {ideas.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No ideas found. Create some ideas first!
-                            </p>
-                          ) : (
-                            ideas.map((idea) => {
-                              const isSelected = context.some(c => c.type === 'idea' && c.id === idea.id)
-                              return (
-                                <Card
-                                  key={idea.id}
-                                  className={`glass hover:glass-strong cursor-pointer transition-all ${
-                                    isSelected ? 'ring-2 ring-primary' : ''
-                                  }`}
-                                  onClick={() => addContextItem({
-                                    type: 'idea',
-                                    id: idea.id,
-                                    title: idea.title,
-                                    description: idea.description
-                                  })}
-                                >
-                                  <CardContent className="p-3">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="flex-1">
-                                        <div className="font-medium text-sm">{idea.title}</div>
-                                        {idea.description && (
-                                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                                            {idea.description}
-                                          </p>
-                                        )}
-                                      </div>
-                                      {isSelected && (
-                                        <CheckSquare className="w-4 h-4 text-primary flex-shrink-0" />
+                          {ideas.map((idea) => {
+                            const isSelected = context.some(c => c.type === 'idea' && c.id === idea.id)
+                            return (
+                              <Card
+                                key={idea.id}
+                                className={`glass hover:glass-strong cursor-pointer transition-all ${
+                                  isSelected ? 'ring-2 ring-primary' : ''
+                                }`}
+                                onClick={() => addContextItem({
+                                  type: 'idea',
+                                  id: idea.id,
+                                  title: idea.title,
+                                  description: idea.description
+                                })}
+                              >
+                                <CardContent className="p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-sm">{idea.title}</div>
+                                      {idea.description && (
+                                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                          {idea.description}
+                                        </p>
                                       )}
                                     </div>
-                                  </CardContent>
-                                </Card>
-                              )
-                            })
-                          )}
+                                    {isSelected && (
+                                      <CheckSquare className="w-4 h-4 text-primary flex-shrink-0" />
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -621,6 +641,7 @@ export default function CopilotPage() {
               type="submit"
               disabled={!inputValue.trim() || isTyping}
               className="gradient-primary hover:glow-primary h-10 w-10 p-0 flex-shrink-0"
+              title="Send message (Shift+Enter for new line)"
             >
               {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
@@ -628,13 +649,13 @@ export default function CopilotPage() {
         </div>
       </div>
 
-      {/* Suggested Items Bar */}
+      {/* Suggested Items Bar - Only show if idea is selected and suggestions exist */}
       {selectedIdeaId && suggestedItems.length > 0 && (
         <SuggestedItemsBar 
           items={suggestedItems}
           ideaId={selectedIdeaId}
-          onItemCreated={() => {
-            setSuggestedItems([])
+          onItemCreated={(item) => {
+            setSuggestedItems(prev => prev.filter(s => s.title !== item.title))
           }}
           onError={(error) => console.error('Error creating item:', error)}
         />
@@ -703,7 +724,7 @@ export default function CopilotPage() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  ))}
               </div>
             )}
           </ScrollArea>
