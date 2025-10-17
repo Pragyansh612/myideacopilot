@@ -1,5 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+import type { SuggestedItem } from './idea'
+
 export interface ChatRequest {
   query: string;
   idea_id?: string;
@@ -22,6 +24,7 @@ export interface ChatResponse {
   query_type: string;
   tokens_used?: number;
   response_time_ms: number;
+  suggested_items?: SuggestedItem[];
 }
 
 export interface ChatHistoryItem {
@@ -51,7 +54,7 @@ export interface ChatHistoryResponse {
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {

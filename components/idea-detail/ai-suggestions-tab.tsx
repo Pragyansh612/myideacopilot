@@ -6,8 +6,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Brain, Sparkles, Loader2, Lightbulb, TrendingUp, Target, CheckCircle2 } from "lucide-react"
-import { AIAPI, type AISuggestion, type SuggestionTypeEnum } from "@/lib/api/idea"
+import { Brain, Sparkles, Loader2, Lightbulb, TrendingUp, Target, CheckCircle2, Plus, Zap } from "lucide-react"
+import { AIAPI, type AISuggestion, type SuggestionTypeEnum, FeatureAPI, PhaseAPI } from "@/lib/api/idea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AISuggestionsTabProps {
   ideaId: string
@@ -21,6 +31,14 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
   const [selectedSuggestionType, setSelectedSuggestionType] = useState<SuggestionTypeEnum>("features")
   const [aiContext, setAiContext] = useState("")
+  const [creatingFromSuggestion, setCreatingFromSuggestion] = useState<string | null>(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null)
+  const [createFormData, setCreateFormData] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as "low" | "medium" | "high",
+  })
 
   const handleGenerateAISuggestions = async () => {
     try {
@@ -42,6 +60,68 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
     }
   }
 
+  const handleCreateFeature = async () => {
+    if (!createFormData.title.trim()) {
+      onError("Feature title is required")
+      return
+    }
+
+    try {
+      setCreatingFromSuggestion(selectedSuggestion?.id || null)
+
+      await FeatureAPI.createFeatureForIdea(ideaId, {
+        title: createFormData.title,
+        description: createFormData.description,
+        priority: createFormData.priority,
+      })
+
+      onUpdate()
+      setShowCreateDialog(false)
+      setCreateFormData({ title: "", description: "", priority: "medium" })
+      setSelectedSuggestion(null)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to create feature")
+    } finally {
+      setCreatingFromSuggestion(null)
+    }
+  }
+
+  const handleCreatePhase = async () => {
+    if (!createFormData.title.trim()) {
+      onError("Phase name is required")
+      return
+    }
+
+    try {
+      setCreatingFromSuggestion(selectedSuggestion?.id || null)
+
+      await PhaseAPI.createPhase(ideaId, {
+        name: createFormData.title,
+        description: createFormData.description,
+        order_index: 0,
+      })
+
+      onUpdate()
+      setShowCreateDialog(false)
+      setCreateFormData({ title: "", description: "", priority: "medium" })
+      setSelectedSuggestion(null)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to create phase")
+    } finally {
+      setCreatingFromSuggestion(null)
+    }
+  }
+
+  const openCreateDialog = (suggestion: any, item: any, itemType: "feature" | "phase") => {
+    setSelectedSuggestion(suggestion)
+    setCreateFormData({
+      title: item.title || item.name || "",
+      description: item.description || "",
+      priority: item.priority || "medium",
+    })
+    setShowCreateDialog(true)
+  }
+
   // Group suggestions by type
   const suggestionsByType = aiSuggestions.reduce((acc, suggestion) => {
     const type = suggestion.suggestion_type
@@ -49,6 +129,8 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
     acc[type].push(suggestion)
     return acc
   }, {} as Record<string, AISuggestion[]>)
+
+  const isCreateableType = (type: string) => ["features", "phases"].includes(type)
 
   return (
     <div className="space-y-4">
@@ -85,6 +167,12 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                     <div className="flex items-center gap-2">
                       <Lightbulb className="w-4 h-4" />
                       Feature Suggestions
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="phases">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      Phase Suggestions
                     </div>
                   </SelectItem>
                   <SelectItem value="improvements">
@@ -169,17 +257,24 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
           {Object.entries(suggestionsByType).map(([type, suggestions]) => (
             <Card key={type} className="glass">
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  {type === 'features' && <Lightbulb className="w-5 h-5 text-primary" />}
-                  {type === 'improvements' && <TrendingUp className="w-5 h-5 text-primary" />}
-                  {type === 'marketing' && <Target className="w-5 h-5 text-primary" />}
-                  {type === 'validation' && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                  <CardTitle className="capitalize">{type}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {type === 'features' && <Lightbulb className="w-5 h-5 text-primary" />}
+                    {type === 'phases' && <Zap className="w-5 h-5 text-primary" />}
+                    {type === 'improvements' && <TrendingUp className="w-5 h-5 text-primary" />}
+                    {type === 'marketing' && <Target className="w-5 h-5 text-primary" />}
+                    {type === 'validation' && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                    <CardTitle className="capitalize">{type}</CardTitle>
+                  </div>
+                  {isCreateableType(type) && (
+                    <Badge variant="outline" className="text-xs">
+                      Creatable
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {suggestions.map((suggestion) => {
-                  // Parse the content field if it's a string
                   let content = suggestion.content
                   if (typeof content === 'string') {
                     try {
@@ -189,7 +284,6 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                     }
                   }
 
-                  // Handle different content structures
                   const isArray = Array.isArray(content)
                   const items = isArray ? content : (content?.raw_response ? [{ description: content.raw_response }] : [])
 
@@ -207,35 +301,40 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                         </span>
                       </div>
 
-                      {/* Display structured suggestions */}
                       {items.length > 0 ? (
                         <div className="space-y-3">
                           {items.map((item: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-lg glass-strong border border-border/50">
-                              {item.title && (
-                                <div className="flex items-start justify-between mb-2">
-                                  <h4 className="font-semibold text-sm">{item.title}</h4>
-                                  {item.priority && (
-                                    <Badge
-                                      variant={
-                                        item.priority === 'high' ? 'default' :
-                                          item.priority === 'medium' ? 'secondary' :
-                                            'outline'
-                                      }
-                                      className="text-xs"
-                                    >
-                                      {item.priority}
-                                    </Badge>
+                            <div key={idx} className="p-4 rounded-lg glass-strong border border-border/50 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  {item.title && (
+                                    <h4 className="font-semibold text-sm">{item.title}</h4>
+                                  )}
+                                  {item.name && (
+                                    <h4 className="font-semibold text-sm">{item.name}</h4>
+                                  )}
+                                  {item.description && (
+                                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                                      {item.description}
+                                    </p>
                                   )}
                                 </div>
-                              )}
-                              {item.description && (
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                  {item.description}
-                                </p>
-                              )}
-                              {(item.estimated_effort || item.effort) && (
-                                <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                                {item.priority && (
+                                  <Badge
+                                    variant={
+                                      item.priority === 'high' ? 'default' :
+                                        item.priority === 'medium' ? 'secondary' :
+                                          'outline'
+                                    }
+                                    className="text-xs ml-2 flex-shrink-0"
+                                  >
+                                    {item.priority}
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {(item.estimated_effort || item.effort || item.impact || item.estimated_duration_weeks) && (
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-border/30 pt-2">
                                   {item.estimated_effort && (
                                     <span>Effort: {item.estimated_effort}/10</span>
                                   )}
@@ -245,7 +344,123 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                                   {item.impact && (
                                     <span>Impact: {item.impact}</span>
                                   )}
+                                  {item.estimated_duration_weeks && (
+                                    <span>Duration: {item.estimated_duration_weeks} weeks</span>
+                                  )}
                                 </div>
+                              )}
+
+                              {isCreateableType(type) && (
+                                <Dialog open={showCreateDialog && selectedSuggestion?.id === suggestion.id} onOpenChange={setShowCreateDialog}>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full gap-2 mt-2"
+                                      onClick={() => openCreateDialog(suggestion, item, type === 'features' ? 'feature' : 'phase')}
+                                      disabled={creatingFromSuggestion === suggestion.id}
+                                    >
+                                      {creatingFromSuggestion === suggestion.id ? (
+                                        <>
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                          Creating...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Plus className="w-3 h-3" />
+                                          Create {type === 'features' ? 'Feature' : 'Phase'}
+                                        </>
+                                      )}
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="glass max-w-md">
+                                    <DialogHeader>
+                                      <DialogTitle>Create {type === 'features' ? 'Feature' : 'Phase'}</DialogTitle>
+                                      <DialogDescription>
+                                        {type === 'features' 
+                                          ? 'Create a new feature from this AI suggestion'
+                                          : 'Create a new phase from this AI suggestion'
+                                        }
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="create-title">
+                                          {type === 'features' ? 'Feature' : 'Phase'} Name
+                                        </Label>
+                                        <Input
+                                          id="create-title"
+                                          placeholder={type === 'features' ? 'e.g., Dark Mode' : 'e.g., MVP Development'}
+                                          value={createFormData.title}
+                                          onChange={(e) => setCreateFormData({
+                                            ...createFormData,
+                                            title: e.target.value
+                                          })}
+                                        />
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <Label htmlFor="create-description">Description (Optional)</Label>
+                                        <Textarea
+                                          id="create-description"
+                                          placeholder="Add more details about this item..."
+                                          value={createFormData.description}
+                                          onChange={(e) => setCreateFormData({
+                                            ...createFormData,
+                                            description: e.target.value
+                                          })}
+                                          rows={3}
+                                        />
+                                      </div>
+
+                                      {type === 'features' && (
+                                        <div className="space-y-2">
+                                          <Label htmlFor="create-priority">Priority</Label>
+                                          <Select value={createFormData.priority} onValueChange={(value) => setCreateFormData({
+                                            ...createFormData,
+                                            priority: value as "low" | "medium" | "high"
+                                          })}>
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="low">Low</SelectItem>
+                                              <SelectItem value="medium">Medium</SelectItem>
+                                              <SelectItem value="high">High</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      )}
+
+                                      <div className="flex gap-2 pt-4">
+                                        <Button
+                                          onClick={() => type === 'features' ? handleCreateFeature() : handleCreatePhase()}
+                                          className="gradient-primary flex-1"
+                                          disabled={!createFormData.title.trim() || creatingFromSuggestion !== null}
+                                        >
+                                          {creatingFromSuggestion ? (
+                                            <>
+                                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                              Creating...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus className="w-4 h-4 mr-2" />
+                                              Create
+                                            </>
+                                          )}
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => setShowCreateDialog(false)}
+                                          disabled={creatingFromSuggestion !== null}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
                               )}
                             </div>
                           ))}

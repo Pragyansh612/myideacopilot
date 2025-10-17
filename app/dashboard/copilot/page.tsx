@@ -29,7 +29,8 @@ import {
   Clock
 } from "lucide-react"
 import { CopilotAPI, ChatRequest, ChatHistoryItem } from "@/lib/api/copilot"
-import { IdeaAPI, Idea } from "@/lib/api/idea"
+import { IdeaAPI, Idea, type SuggestedItem } from "@/lib/api/idea"
+import { SuggestedItemsBar } from "@/components/copilot/suggested-items-bar"
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ interface Message {
   query_type?: string
   user_prompt?: string
   ai_response?: string
+  suggested_items?: SuggestedItem[]
 }
 
 interface ContextItem {
@@ -97,6 +99,8 @@ export default function CopilotPage() {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyTotal, setHistoryTotal] = useState(0)
+  const [suggestedItems, setSuggestedItems] = useState<SuggestedItem[]>([])
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -113,6 +117,9 @@ export default function CopilotPage() {
     try {
       const result = await IdeaAPI.getIdeas({ limit: 100 })
       setIdeas(result.ideas)
+      if (result.ideas.length > 0 && !selectedIdeaId) {
+        setSelectedIdeaId(result.ideas[0].id)
+      }
     } catch (error) {
       console.error('Failed to load ideas:', error)
     } finally {
@@ -255,8 +262,13 @@ export default function CopilotPage() {
         timestamp: new Date(),
         context_used: response.context_used,
         query_type: response.query_type,
+        suggested_items: response.suggested_items,
       }
       setMessages((prev) => [...prev, aiMessage])
+      
+      if (response.suggested_items && response.suggested_items.length > 0) {
+        setSuggestedItems(response.suggested_items)
+      }
     } catch (error) {
       console.error('Chat error:', error)
       const errorMessage: Message = {
@@ -600,6 +612,18 @@ export default function CopilotPage() {
           </form>
         </div>
       </div>
+
+      {/* Suggested Items Bar */}
+      {selectedIdeaId && suggestedItems.length > 0 && (
+        <SuggestedItemsBar 
+          items={suggestedItems}
+          ideaId={selectedIdeaId}
+          onItemCreated={() => {
+            setSuggestedItems([])
+          }}
+          onError={(error) => console.error('Error creating item:', error)}
+        />
+      )}
 
       {/* History Dialog */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>

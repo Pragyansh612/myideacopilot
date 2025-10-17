@@ -2,8 +2,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export type PriorityEnum = 'low' | 'medium' | 'high';
 export type StatusEnum = 'new' | 'in_progress' | 'completed' | 'archived' | 'paused';
-export type SuggestionTypeEnum = 'features' | 'improvements' | 'marketing' | 'validation';
+export type SuggestionTypeEnum = 'features' | 'phases' | 'improvements' | 'marketing' | 'validation';
 export type RelationTypeEnum = 'related' | 'depends_on' | 'blocks' | 'similar' | 'inspired_by';
+
+// Suggested Item from AI
+export interface SuggestedItem {
+  title: string
+  description: string
+  priority?: string
+  type: "feature" | "phase"
+}
 
 // ==================== RELATED IDEAS TYPES ====================
 
@@ -72,7 +80,7 @@ export interface RecommendationList {
   auto_created_count?: number;
 }
 
-// ==================== EXISTING TYPES ====================
+// ==================== AI TYPES ====================
 
 export interface AIGenerateRequest {
   idea_id: string;
@@ -86,9 +94,10 @@ export interface AISuggestion {
   idea_id: string;
   suggestion_type: string;
   suggestion_text: string;
-  content: string | any; 
+  content: string | any;
   context?: string;
   confidence_score?: number;
+  is_applied?: boolean;
   created_at: string;
 }
 
@@ -102,6 +111,24 @@ export interface AIQueryLog {
   tokens_used?: number;
   created_at: string;
 }
+
+export interface CreateFromSuggestionRequest {
+  suggestion_id: string
+  item_type: "feature" | "phase"
+  idea_id: string
+  title?: string
+  description?: string
+  priority?: string
+}
+
+export interface CreateFromSuggestionResponse {
+  item_type: string
+  feature?: Feature
+  phase?: Phase
+  created_from_suggestion: string
+}
+
+// ==================== COMPETITOR TYPES ====================
 
 export interface CompetitorResearch {
   id: string;
@@ -117,6 +144,14 @@ export interface CompetitorResearch {
   created_at: string;
   updated_at: string;
 }
+
+export interface CompetitorScrapeRequest {
+  idea_id: string;
+  urls: string[];
+  analyze?: boolean;
+}
+
+// ==================== CATEGORY TYPES ====================
 
 export interface Category {
   id: string;
@@ -138,6 +173,8 @@ export interface CategoryUpdate {
   color?: string;
   description?: string;
 }
+
+// ==================== IDEA TYPES ====================
 
 export interface Idea {
   id: string;
@@ -201,6 +238,28 @@ export interface IdeaUpdate {
   is_archived?: boolean;
 }
 
+export interface IdeaListParams {
+  limit?: number;
+  offset?: number;
+  category_id?: string;
+  tag?: string;
+  priority?: PriorityEnum;
+  status?: StatusEnum;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  search?: string;
+}
+
+export interface PaginatedIdeas {
+  ideas: Idea[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+// ==================== PHASE TYPES ====================
+
 export interface Phase {
   id: string;
   idea_id: string;
@@ -228,6 +287,8 @@ export interface PhaseUpdate {
   is_completed?: boolean;
   due_date?: string;
 }
+
+// ==================== FEATURE TYPES ====================
 
 export interface Feature {
   id: string;
@@ -258,32 +319,6 @@ export interface FeatureUpdate {
   order_index?: number;
 }
 
-export interface IdeaListParams {
-  limit?: number;
-  offset?: number;
-  category_id?: string;
-  tag?: string;
-  priority?: PriorityEnum;
-  status?: StatusEnum;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-  search?: string;
-}
-
-export interface PaginatedIdeas {
-  ideas: Idea[];
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-}
-
-export interface CompetitorScrapeRequest {
-  idea_id: string;
-  urls: string[];
-  analyze?: boolean;
-}
-
 // ==================== API HELPER ====================
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -303,7 +338,6 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     throw new Error(error.detail || 'Request failed');
   }
 
-  // Handle 204 No Content
   if (response.status === 204) {
     return null;
   }
@@ -541,5 +575,13 @@ export class AIAPI {
   static async getQueryLogs(limit: number = 50): Promise<AIQueryLog[]> {
     const result = await fetchWithAuth(`${API_URL}/api/ai/logs?limit=${limit}`);
     return result.data.logs;
+  }
+
+  static async createFromSuggestion(data: CreateFromSuggestionRequest): Promise<CreateFromSuggestionResponse> {
+    const result = await fetchWithAuth(`${API_URL}/api/ai/suggestions/create-item`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.data;
   }
 }
