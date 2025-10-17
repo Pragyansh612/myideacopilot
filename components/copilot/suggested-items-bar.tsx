@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X, Lightbulb, Layers, AlertCircle, Sparkles } from "lucide-react"
+import { Plus, X, Lightbulb, Layers, Sparkles } from "lucide-react"
 import { FeatureAPI, PhaseAPI, type SuggestedItem } from "@/lib/api/idea"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react"
 interface SuggestedItemsBarProps {
   items: SuggestedItem[]
   ideaId: string
-  onItemCreated: () => void
+  onItemCreated: (item: SuggestedItem) => void
   onError: (error: string) => void
 }
 
@@ -41,15 +41,18 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
       }
 
       setCreatedItems(prev => [...prev, itemKey])
+      onItemCreated(item)
+      
       setTimeout(() => {
-        onItemCreated()
+        setCreating(null)
       }, 500)
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to create item")
-    } finally {
       setCreating(null)
+      onError(err instanceof Error ? err.message : "Failed to create item")
     }
   }
+
+  const remainingItems = items.filter((_, idx) => !createdItems.includes(`${items[idx].type}-${idx}`))
 
   return (
     <div className="fixed bottom-24 right-6 max-w-sm space-y-2 pointer-events-auto z-40 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -60,16 +63,16 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
         </div>
       </div>
 
-      {items.map((item, idx) => {
-        const itemKey = `${item.type}-${idx}`
-        const isCreated = createdItems.includes(itemKey)
+      {remainingItems.map((item, idx) => {
+        const originalIndex = items.findIndex(
+          i => i.title === item.title && i.type === item.type
+        )
+        const itemKey = `${item.type}-${originalIndex}`
         const isCreating = creating === itemKey
-
-        if (isCreated) return null
 
         return (
           <Card 
-            key={idx} 
+            key={`${item.type}-${item.title}`}
             className="glass hover:glass-strong transition-all border-primary/20 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300"
           >
             <CardContent className="p-3 space-y-2">
@@ -108,7 +111,7 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
                   <Button
                     size="sm"
                     className="gradient-primary h-7 px-2"
-                    onClick={() => handleCreateItem(item, idx)}
+                    onClick={() => handleCreateItem(item, originalIndex)}
                     disabled={isCreating}
                   >
                     {isCreating ? (
@@ -124,7 +127,7 @@ export function SuggestedItemsBar({ items, ideaId, onItemCreated, onError }: Sug
         )
       })}
 
-      {items.length > 0 && (
+      {remainingItems.length > 0 && (
         <p className="text-xs text-muted-foreground text-center px-2">
           Click to create from AI suggestions
         </p>

@@ -112,6 +112,21 @@ export default function CopilotPage() {
     scrollToBottom()
   }, [messages])
 
+  // Load first idea on mount for suggested items bar
+  useEffect(() => {
+    const loadFirstIdea = async () => {
+      try {
+        const result = await IdeaAPI.getIdeas({ limit: 1 })
+        if (result.ideas.length > 0) {
+          setSelectedIdeaId(result.ideas[0].id)
+        }
+      } catch (error) {
+        console.error('Failed to load first idea:', error)
+      }
+    }
+    loadFirstIdea()
+  }, [])
+
   const loadIdeas = async () => {
     setLoadingIdeas(true)
     try {
