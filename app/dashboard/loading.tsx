@@ -1,9 +1,8 @@
-import { AppLayout } from "@/components/app-layout"
 import { GlassSkeleton, CardSkeleton } from "@/components/glass-skeleton"
 
 export default function DashboardLoading() {
   return (
-    <AppLayout>
+    <>
       <div className="p-6 border-b border-border/50">
         <div className="space-y-2">
           <GlassSkeleton className="h-8 w-64" />
@@ -62,6 +61,6 @@ export default function DashboardLoading() {
           </div>
         </section>
       </div>
-    </AppLayout>
+    </>
   )
 }
