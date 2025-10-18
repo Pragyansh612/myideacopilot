@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Brain, Sparkles, Loader2, Lightbulb, TrendingUp, Target, CheckCircle2, Plus, Zap } from "lucide-react"
@@ -14,10 +14,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface AISuggestionsTabProps {
   ideaId: string
@@ -31,7 +31,6 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
   const [selectedSuggestionType, setSelectedSuggestionType] = useState<SuggestionTypeEnum>("features")
   const [aiContext, setAiContext] = useState("")
-  const [creatingFromSuggestion, setCreatingFromSuggestion] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null)
   const [createFormData, setCreateFormData] = useState({
@@ -39,6 +38,7 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
     description: "",
     priority: "medium" as "low" | "medium" | "high",
   })
+  const [lastGeneratedTime, setLastGeneratedTime] = useState<Date | null>(null)
 
   const handleGenerateAISuggestions = async () => {
     try {
@@ -67,8 +67,6 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
     }
 
     try {
-      setCreatingFromSuggestion(selectedSuggestion?.id || null)
-
       await FeatureAPI.createFeatureForIdea(ideaId, {
         title: createFormData.title,
         description: createFormData.description,
@@ -81,8 +79,6 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
       setSelectedSuggestion(null)
     } catch (err) {
       onError(err instanceof Error ? err.message : "Failed to create feature")
-    } finally {
-      setCreatingFromSuggestion(null)
     }
   }
 
@@ -93,8 +89,6 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
     }
 
     try {
-      setCreatingFromSuggestion(selectedSuggestion?.id || null)
-
       await PhaseAPI.createPhase(ideaId, {
         name: createFormData.title,
         description: createFormData.description,
@@ -107,13 +101,11 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
       setSelectedSuggestion(null)
     } catch (err) {
       onError(err instanceof Error ? err.message : "Failed to create phase")
-    } finally {
-      setCreatingFromSuggestion(null)
     }
   }
 
   const openCreateDialog = (suggestion: any, item: any, itemType: "feature" | "phase") => {
-    setSelectedSuggestion(suggestion)
+    setSelectedSuggestion({ ...suggestion, itemType })
     setCreateFormData({
       title: item.title || item.name || "",
       description: item.description || "",
@@ -131,6 +123,12 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
   }, {} as Record<string, AISuggestion[]>)
 
   const isCreateableType = (type: string) => ["features", "phases"].includes(type)
+
+  // Get first few suggestions per type (limit to 5 per type)
+  const displayedSuggestionsByType = Object.entries(suggestionsByType).reduce((acc, [type, suggestions]) => {
+    acc[type] = suggestions.slice(0, 1) // Show only latest suggestion group per type
+    return acc
+  }, {} as Record<string, AISuggestion[]>)
 
   return (
     <div className="space-y-4">
@@ -163,36 +161,11 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="features">
-                    <div className="flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4" />
-                      Feature Suggestions
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="phases">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      Phase Suggestions
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="improvements">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      Improvements
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="marketing">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4" />
-                      Marketing Strategy
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="validation">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Market Validation
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="features">Feature Suggestions</SelectItem>
+                  <SelectItem value="phases">Phase Suggestions</SelectItem>
+                  <SelectItem value="improvements">Improvements</SelectItem>
+                  <SelectItem value="marketing">Marketing Strategy</SelectItem>
+                  <SelectItem value="validation">Market Validation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -253,72 +226,65 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(suggestionsByType).map(([type, suggestions]) => (
-            <Card key={type} className="glass">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {type === 'features' && <Lightbulb className="w-5 h-5 text-primary" />}
-                    {type === 'phases' && <Zap className="w-5 h-5 text-primary" />}
-                    {type === 'improvements' && <TrendingUp className="w-5 h-5 text-primary" />}
-                    {type === 'marketing' && <Target className="w-5 h-5 text-primary" />}
-                    {type === 'validation' && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                    <CardTitle className="capitalize">{type}</CardTitle>
-                  </div>
-                  {isCreateableType(type) && (
-                    <Badge variant="outline" className="text-xs">
-                      Creatable
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {suggestions.map((suggestion) => {
-                  let content = suggestion.content
-                  if (typeof content === 'string') {
-                    try {
-                      content = JSON.parse(content)
-                    } catch (e) {
-                      console.error('Error parsing suggestion content:', e)
-                    }
+        <Tabs defaultValue={Object.keys(displayedSuggestionsByType)[0]} className="space-y-4">
+          <TabsList className="glass">
+            {Object.entries(displayedSuggestionsByType).map(([type]) => (
+              <TabsTrigger key={type} value={type} className="capitalize">
+                {type === 'features' && <Lightbulb className="w-4 h-4 mr-2" />}
+                {type === 'phases' && <Zap className="w-4 h-4 mr-2" />}
+                {type === 'improvements' && <TrendingUp className="w-4 h-4 mr-2" />}
+                {type === 'marketing' && <Target className="w-4 h-4 mr-2" />}
+                {type === 'validation' && <CheckCircle2 className="w-4 h-4 mr-2" />}
+                {type}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {Object.entries(displayedSuggestionsByType).map(([type, suggestions]) => (
+            <TabsContent key={type} value={type} className="space-y-3">
+              {suggestions.map((suggestion) => {
+                let content = suggestion.content
+                if (typeof content === 'string') {
+                  try {
+                    content = JSON.parse(content)
+                  } catch (e) {
+                    console.error('Error parsing suggestion content:', e)
                   }
+                }
 
-                  const isArray = Array.isArray(content)
-                  const items = isArray ? content : (content?.raw_response ? [{ description: content.raw_response }] : [])
+                const isArray = Array.isArray(content)
+                const items = isArray ? content : (content?.raw_response ? [{ description: content.raw_response }] : [])
 
-                  return (
-                    <div key={suggestion.id} className="space-y-3">
-                      <div className="flex items-start justify-between mb-3">
-                        <Badge variant="secondary" className="text-xs">
-                          {suggestion.confidence_score
-                            ? `${(suggestion.confidence_score * 100).toFixed(0)}% confidence`
-                            : 'AI Generated'
-                          }
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(suggestion.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
+                return (
+                  <div key={suggestion.id} className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+                      <Badge variant="secondary" className="text-xs">
+                        {suggestion.confidence_score
+                          ? `${(suggestion.confidence_score * 100).toFixed(0)}% confidence`
+                          : 'AI Generated'
+                        }
+                      </Badge>
+                      <span>
+                        {new Date(suggestion.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
 
-                      {items.length > 0 ? (
-                        <div className="space-y-3">
-                          {items.map((item: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-lg glass-strong border border-border/50 space-y-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  {item.title && (
-                                    <h4 className="font-semibold text-sm">{item.title}</h4>
-                                  )}
-                                  {item.name && (
-                                    <h4 className="font-semibold text-sm">{item.name}</h4>
-                                  )}
-                                  {item.description && (
-                                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
-                                      {item.description}
-                                    </p>
-                                  )}
-                                </div>
+                    {items.length > 0 ? (
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {items.map((item: any, idx: number) => (
+                          <div key={idx} className="p-4 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors group cursor-pointer" onClick={() => openCreateDialog(suggestion, item, type === 'features' ? 'feature' : 'phase')}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm group-hover:text-primary transition-colors line-clamp-2">
+                                  {item.title || item.name}
+                                </h4>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground leading-relaxed mt-2 line-clamp-3">
+                                    {item.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-start gap-2 flex-shrink-0 mt-1">
                                 {item.priority && (
                                   <Badge
                                     variant={
@@ -326,160 +292,140 @@ export function AISuggestionsTab({ ideaId, aiSuggestions, onUpdate, onError }: A
                                         item.priority === 'medium' ? 'secondary' :
                                           'outline'
                                     }
-                                    className="text-xs ml-2 flex-shrink-0"
+                                    className="text-xs"
                                   >
                                     {item.priority}
                                   </Badge>
                                 )}
+                                {isCreateableType(type) && (
+                                  <Button
+                                    size="sm"
+                                    className="gradient-primary h-7 w-7 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openCreateDialog(suggestion, item, type === 'features' ? 'feature' : 'phase')
+                                    }}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                )}
                               </div>
-
-                              {(item.estimated_effort || item.effort || item.impact || item.estimated_duration_weeks) && (
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-border/30 pt-2">
-                                  {item.estimated_effort && (
-                                    <span>Effort: {item.estimated_effort}/10</span>
-                                  )}
-                                  {item.effort && (
-                                    <span>Effort: {item.effort}</span>
-                                  )}
-                                  {item.impact && (
-                                    <span>Impact: {item.impact}</span>
-                                  )}
-                                  {item.estimated_duration_weeks && (
-                                    <span>Duration: {item.estimated_duration_weeks} weeks</span>
-                                  )}
-                                </div>
-                              )}
-
-                              {isCreateableType(type) && (
-                                <Dialog open={showCreateDialog && selectedSuggestion?.id === suggestion.id} onOpenChange={setShowCreateDialog}>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="w-full gap-2 mt-2"
-                                      onClick={() => openCreateDialog(suggestion, item, type === 'features' ? 'feature' : 'phase')}
-                                      disabled={creatingFromSuggestion === suggestion.id}
-                                    >
-                                      {creatingFromSuggestion === suggestion.id ? (
-                                        <>
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                          Creating...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Plus className="w-3 h-3" />
-                                          Create {type === 'features' ? 'Feature' : 'Phase'}
-                                        </>
-                                      )}
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="glass max-w-md">
-                                    <DialogHeader>
-                                      <DialogTitle>Create {type === 'features' ? 'Feature' : 'Phase'}</DialogTitle>
-                                      <DialogDescription>
-                                        {type === 'features' 
-                                          ? 'Create a new feature from this AI suggestion'
-                                          : 'Create a new phase from this AI suggestion'
-                                        }
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div className="space-y-2">
-                                        <Label htmlFor="create-title">
-                                          {type === 'features' ? 'Feature' : 'Phase'} Name
-                                        </Label>
-                                        <Input
-                                          id="create-title"
-                                          placeholder={type === 'features' ? 'e.g., Dark Mode' : 'e.g., MVP Development'}
-                                          value={createFormData.title}
-                                          onChange={(e) => setCreateFormData({
-                                            ...createFormData,
-                                            title: e.target.value
-                                          })}
-                                        />
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        <Label htmlFor="create-description">Description (Optional)</Label>
-                                        <Textarea
-                                          id="create-description"
-                                          placeholder="Add more details about this item..."
-                                          value={createFormData.description}
-                                          onChange={(e) => setCreateFormData({
-                                            ...createFormData,
-                                            description: e.target.value
-                                          })}
-                                          rows={3}
-                                        />
-                                      </div>
-
-                                      {type === 'features' && (
-                                        <div className="space-y-2">
-                                          <Label htmlFor="create-priority">Priority</Label>
-                                          <Select value={createFormData.priority} onValueChange={(value) => setCreateFormData({
-                                            ...createFormData,
-                                            priority: value as "low" | "medium" | "high"
-                                          })}>
-                                            <SelectTrigger>
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="low">Low</SelectItem>
-                                              <SelectItem value="medium">Medium</SelectItem>
-                                              <SelectItem value="high">High</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                      )}
-
-                                      <div className="flex gap-2 pt-4">
-                                        <Button
-                                          onClick={() => type === 'features' ? handleCreateFeature() : handleCreatePhase()}
-                                          className="gradient-primary flex-1"
-                                          disabled={!createFormData.title.trim() || creatingFromSuggestion !== null}
-                                        >
-                                          {creatingFromSuggestion ? (
-                                            <>
-                                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                              Creating...
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Plus className="w-4 h-4 mr-2" />
-                                              Create
-                                            </>
-                                          )}
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          onClick={() => setShowCreateDialog(false)}
-                                          disabled={creatingFromSuggestion !== null}
-                                        >
-                                          Cancel
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-4 rounded-lg glass-strong">
-                          <p className="text-sm text-muted-foreground">
-                            No structured suggestions available
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
+
+                            {(item.estimated_effort || item.effort || item.impact) && (
+                              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground border-t border-border/30 mt-3 pt-3">
+                                {item.estimated_effort && <span>Effort: {item.estimated_effort}/10</span>}
+                                {item.effort && <span>Effort: {item.effort}</span>}
+                                {item.impact && <span>Impact: {item.impact}</span>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-lg glass-strong text-center">
+                        <p className="text-sm text-muted-foreground">No structured suggestions available</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       )}
+
+      {/* Create Feature/Phase Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="glass max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Create {selectedSuggestion?.itemType === 'feature' ? 'Feature' : 'Phase'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedSuggestion?.itemType === 'feature'
+                ? 'Create a new feature from this AI suggestion'
+                : 'Create a new phase from this AI suggestion'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-muted/50 max-h-32 overflow-y-auto">
+              <p className="text-sm font-medium line-clamp-2">{selectedSuggestion?.title}</p>
+              {selectedSuggestion?.description && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
+                  {selectedSuggestion.description}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-title">
+                {selectedSuggestion?.itemType === 'feature' ? 'Feature' : 'Phase'} Name
+              </Label>
+              <Input
+                id="create-title"
+                placeholder={selectedSuggestion?.itemType === 'feature' ? 'e.g., Dark Mode' : 'e.g., MVP Development'}
+                value={createFormData.title}
+                onChange={(e) => setCreateFormData({
+                  ...createFormData,
+                  title: e.target.value
+                })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-description">Description (Optional)</Label>
+              <Textarea
+                id="create-description"
+                placeholder="Add more details about this item..."
+                value={createFormData.description}
+                onChange={(e) => setCreateFormData({
+                  ...createFormData,
+                  description: e.target.value
+                })}
+                rows={3}
+              />
+            </div>
+
+            {selectedSuggestion?.itemType === 'feature' && (
+              <div className="space-y-2">
+                <Label htmlFor="create-priority">Priority</Label>
+                <Select value={createFormData.priority} onValueChange={(value) => setCreateFormData({
+                  ...createFormData,
+                  priority: value as "low" | "medium" | "high"
+                })}>
+                  <SelectTrigger id="create-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                onClick={() => selectedSuggestion?.itemType === 'feature' ? handleCreateFeature() : handleCreatePhase()}
+                className="gradient-primary flex-1"
+                disabled={!createFormData.title.trim()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

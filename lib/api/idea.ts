@@ -312,11 +312,12 @@ export interface FeatureCreate {
 }
 
 export interface FeatureUpdate {
-  title?: string;
-  description?: string;
-  is_completed?: boolean;
-  priority?: PriorityEnum;
-  order_index?: number;
+  title?: string
+  description?: string
+  is_completed?: boolean
+  priority?: PriorityEnum
+  order_index?: number
+  phase_id?: string
 }
 
 // ==================== API HELPER ====================
