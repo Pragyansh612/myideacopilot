@@ -2,15 +2,20 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { PageHeader } from "@/components/page-header"
-import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ArrowLeft, Edit2, Trash2, Save, X, Loader2 } from "lucide-react"
 import { IdeaAPI, type Idea, type IdeaUpdate } from "@/lib/api/idea"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface IdeaDetailHeaderProps {
   idea: Idea
@@ -20,18 +25,25 @@ interface IdeaDetailHeaderProps {
 }
 
 export function IdeaDetailHeader({ idea, onUpdate, onDelete, onError }: IdeaDetailHeaderProps) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [editTitle, setEditTitle] = useState(idea.title)
   const [editDescription, setEditDescription] = useState(idea.description || "")
 
   const handleSaveEdit = async () => {
+    if (!editTitle.trim()) {
+      onError("Title is required")
+      return
+    }
+
     try {
       setIsSaving(true)
       const updateData: IdeaUpdate = {
         title: editTitle,
-        description: editDescription,
+        description: editDescription || undefined,
       }
       await IdeaAPI.updateIdea(idea.id, updateData)
       await onUpdate()
@@ -49,93 +61,148 @@ export function IdeaDetailHeader({ idea, onUpdate, onDelete, onError }: IdeaDeta
     setIsEditing(false)
   }
 
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true)
+      await onDelete()
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to delete idea")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
+
   return (
     <>
-      <PageHeader
-        title={isEditing ? "Edit Idea" : idea.title}
-        description={undefined}
-      >
-        <div className="flex items-center gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/ideas">
+      <div className="border-b border-border/50">
+        <div className="p-4 md:p-6">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
-            </Link>
-          </Button>
-          {!isEditing ? (
-            <>
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
-                <Edit2 className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={isSaving} className="gradient-primary">
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save
-              </Button>
-            </>
-          )}
-        </div>
-      </PageHeader>
+            </Button>
 
-      {isEditing && (
-        <div className="p-4 md:p-6">
-          <Card className="glass-strong">
-            <CardContent className="p-6 space-y-4">
+            <div className="flex gap-2">
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                    size="sm"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={isSaving || !editTitle.trim()}
+                    className="gradient-primary"
+                    size="sm"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditing(true)}
+                    size="sm"
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeleteDialog(true)}
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Title</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Idea Title
+                </label>
                 <Input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="text-lg font-medium glass"
+                  className="text-2xl md:text-3xl font-bold glass"
+                  placeholder="Enter idea title"
                   disabled={isSaving}
+                  autoFocus
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Description
+                </label>
                 <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  rows={6}
+                  placeholder="Describe your idea..."
+                  rows={5}
                   className="glass resize-none"
                   disabled={isSaving}
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold break-words">{idea.title}</h1>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      <ConfirmDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        onConfirm={() => {
-          setShowDeleteDialog(false)
-          onDelete()
-        }}
-        title="Delete Idea"
-        description="Are you sure you want to delete this idea? This action cannot be undone."
-        confirmText="Delete"
-        variant="destructive"
-      />
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="glass">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Idea?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{idea.title}" and all associated phases, features, and data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Idea"
+              )}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

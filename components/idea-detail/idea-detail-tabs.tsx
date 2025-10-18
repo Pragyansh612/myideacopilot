@@ -96,19 +96,25 @@ export function IdeaDetailTabs({ ideaId, ideaDetail, onUpdate, onError }: IdeaDe
   }
 
   return (
-    <Tabs defaultValue="phases" className="space-y-6">
-      <TabsList className="glass">
-        <TabsTrigger value="phases">Phases & Features</TabsTrigger>
-        <TabsTrigger value="related">
-          <Network className="w-4 h-4 mr-2" />
-          Related Ideas
+    <Tabs defaultValue="phases" className="space-y-4">
+      <TabsList className="glass w-full">
+        <TabsTrigger value="phases" className="flex-1">
+          Phases
         </TabsTrigger>
-        <TabsTrigger value="ai">
-          <Sparkles className="w-4 h-4 mr-2" />
-          AI Suggestions
+        <TabsTrigger value="related" className="flex-1 gap-1">
+          <Network className="w-4 h-4" />
+          <span className="hidden sm:inline">Related</span>
         </TabsTrigger>
-        <TabsTrigger value="competitors">Competitor Research</TabsTrigger>
-        <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="ai" className="flex-1 gap-1">
+          <Sparkles className="w-4 h-4" />
+          <span className="hidden sm:inline">AI</span>
+        </TabsTrigger>
+        <TabsTrigger value="competitors" className="flex-1 hidden sm:inline-flex">
+          Competitors
+        </TabsTrigger>
+        <TabsTrigger value="details" className="flex-1 hidden sm:inline-flex">
+          Details
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="phases">
