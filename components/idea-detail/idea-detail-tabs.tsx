@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Network, Sparkles } from "lucide-react"
+import { Network, Sparkles, Package } from "lucide-react"
 import { PhasesTab } from "./phases-tab"
 import { RelatedIdeasTab } from "./related-ideas-tab"
 import { AISuggestionsTab } from "./ai-suggestions-tab"
 import { CompetitorTab } from "./competitor-tab"
 import { DetailsTab } from "./details-tab"
+import { BuildPlanTab } from "./build-plan-tab"
 import {
   AIAPI, RelatedIdeaAPI, IdeaAPI, CompetitorAPI,
   type IdeaDetail, type AISuggestion, type RelatedIdeaWithDetails,
@@ -101,6 +102,10 @@ export function IdeaDetailTabs({ ideaId, ideaDetail, onUpdate, onError }: IdeaDe
         <TabsTrigger value="phases" className="flex-1">
           Phases
         </TabsTrigger>
+        <TabsTrigger value="build-plan" className="flex-1 gap-1">
+          <Package className="w-4 h-4" />
+          <span className="hidden sm:inline">Build Plan</span>
+        </TabsTrigger>
         <TabsTrigger value="related" className="flex-1 gap-1">
           <Network className="w-4 h-4" />
           <span className="hidden sm:inline">Related</span>
@@ -123,6 +128,13 @@ export function IdeaDetailTabs({ ideaId, ideaDetail, onUpdate, onError }: IdeaDe
           phases={ideaDetail.phases}
           features={ideaDetail.features}
           onUpdate={handleUpdate}
+          onError={onError}
+        />
+      </TabsContent>
+
+      <TabsContent value="build-plan">
+        <BuildPlanTab
+          ideaId={ideaId}
           onError={onError}
         />
       </TabsContent>

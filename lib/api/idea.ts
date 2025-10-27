@@ -320,6 +320,60 @@ export interface FeatureUpdate {
   phase_id?: string
 }
 
+// ==================== AUTO-DETECTION TYPES ====================
+
+export interface CommonComponent {
+  id: string;
+  component_name: string;
+  component_type: 'technology' | 'feature' | 'service' | 'integration';
+  description?: string;
+  used_in_ideas: Array<{ id: string; title: string }>;
+  usage_count: number;
+  priority_score: number;
+  suggested_order: number;
+  estimated_effort?: string;
+  is_accepted: boolean;
+}
+
+export interface BuildStep {
+  step_number: number;
+  component_name: string;
+  component_type: string;
+  description: string;
+  reason: string;
+  dependencies: string[];
+  enables_ideas: string[];
+  estimated_effort?: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+}
+
+export interface BuildPlan {
+  total_steps: number;
+  estimated_timeline?: string;
+  steps: BuildStep[];
+  summary: string;
+}
+
+export interface RelationshipSuggestion {
+  source_idea_id: string;
+  source_idea_title: string;
+  target_idea_id: string;
+  target_idea_title: string;
+  relationship_type: string;
+  reason: string;
+  confidence_score: number;
+  common_components: string[];
+}
+
+export interface AutoDetectionResult {
+  relationships_detected: number;
+  relationships_created: number;
+  common_components_found: number;
+  build_suggestions: CommonComponent[];
+  relationship_suggestions: RelationshipSuggestion[];
+  summary: string;
+}
+
 // ==================== API HELPER ====================
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -584,5 +638,50 @@ export class AIAPI {
       body: JSON.stringify(data),
     });
     return result.data;
+  }
+}
+
+// ==================== AUTO-DETECTION API ====================
+
+export class AutoDetectionAPI {
+  static async analyzeAllIdeas(): Promise<AutoDetectionResult> {
+    const result = await fetchWithAuth(`${API_URL}/api/auto-detect/analyze-ideas`, {
+      method: 'POST',
+    });
+    return result.data;
+  }
+
+  static async getCommonComponents(minUsage: number = 2): Promise<CommonComponent[]> {
+    const result = await fetchWithAuth(
+      `${API_URL}/api/auto-detect/common-components?min_usage=${minUsage}`
+    );
+    return result.data.components;
+  }
+
+  static async getBuildPlan(): Promise<BuildPlan> {
+    const result = await fetchWithAuth(`${API_URL}/api/auto-detect/build-plan`);
+    return result.data.plan;
+  }
+
+  static async detectForIdea(ideaId: string): Promise<any> {
+    const result = await fetchWithAuth(
+      `${API_URL}/api/auto-detect/detect-for-idea/${ideaId}`,
+      { method: 'POST' }
+    );
+    return result.data;
+  }
+
+  static async acceptSuggestion(suggestionId: string): Promise<void> {
+    await fetchWithAuth(
+      `${API_URL}/api/auto-detect/accept-suggestion/${suggestionId}`,
+      { method: 'POST' }
+    );
+  }
+
+  static async dismissSuggestion(suggestionId: string): Promise<void> {
+    await fetchWithAuth(
+      `${API_URL}/api/auto-detect/dismiss-suggestion/${suggestionId}`,
+      { method: 'DELETE' }
+    );
   }
 }
