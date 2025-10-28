@@ -169,32 +169,32 @@ export function RelatedIdeasTab({
           </Dialog>
         </div>
       </div>
-      
-{relatedIdeas.filter(r => r.is_ai_suggested).length > 0 && (
-  <Card className="glass border-primary/20">
-    <CardHeader>
-      <div className="flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-primary" />
-        <CardTitle className="text-base">Auto-Detected Relationships</CardTitle>
-      </div>
-      <CardDescription>
-        These connections were automatically discovered by analyzing your ideas
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <div className="text-sm text-muted-foreground">
-        <p>
-          ✨ {relatedIdeas.filter(r => r.is_ai_suggested).length} relationship
-          {relatedIdeas.filter(r => r.is_ai_suggested).length !== 1 ? 's' : ''} automatically detected
-        </p>
-        <p className="mt-2">
-          These connections help you identify common components and optimize your build strategy.
-          Check the <strong>Build Plan</strong> tab for detailed recommendations.
-        </p>
-      </div>
-    </CardContent>
-  </Card>
-)}
+
+      {relatedIdeas.filter(r => r.is_ai_suggested).length > 0 && (
+        <Card className="glass border-primary/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <CardTitle className="text-base">Auto-Detected Relationships</CardTitle>
+            </div>
+            <CardDescription>
+              These connections were automatically discovered by analyzing your ideas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">
+              <p>
+                ✨ {relatedIdeas.filter(r => r.is_ai_suggested).length} relationship
+                {relatedIdeas.filter(r => r.is_ai_suggested).length !== 1 ? 's' : ''} automatically detected
+              </p>
+              <p className="mt-2">
+                These connections help you identify common components and optimize your build strategy.
+                Check the <strong>Build Plan</strong> tab for detailed recommendations.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Existing Relations */}
       {relatedIdeas.length > 0 && (
@@ -203,7 +203,7 @@ export function RelatedIdeasTab({
             <CardTitle className="text-base">Connected Ideas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {relatedIdeas.map((related) => (
+            {relatedIdeas.filter(related => related?.idea?.id).map((related) => (
               <div
                 key={related.id}
                 className="flex items-start gap-3 p-4 rounded-lg glass-strong border border-border/50 hover:border-primary/30 transition-all"
@@ -214,7 +214,7 @@ export function RelatedIdeasTab({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <Link 
+                      <Link
                         href={`/dashboard/ideas/${related.idea.id}`}
                         className="font-medium hover:text-primary transition-colors"
                       >
@@ -276,7 +276,7 @@ export function RelatedIdeasTab({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <Link 
+                    <Link
                       href={`/dashboard/ideas/${rec.idea.id}`}
                       className="font-medium hover:text-primary transition-colors"
                     >
