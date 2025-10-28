@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Edit2, Trash2, Save, X, Loader2 } from "lucide-react"
+import { ArrowLeft, Edit2, Trash2, Save, X, Loader2, Package } from "lucide-react"
+import Link from "next/link"
 import { IdeaAPI, type Idea, type IdeaUpdate } from "@/lib/api/idea"
 import {
   AlertDialog,
@@ -117,11 +118,21 @@ export function IdeaDetailHeader({ idea, onUpdate, onDelete, onError }: IdeaDeta
                 <>
                   <Button
                     variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <Link href="/dashboard/build-plan">
+                      <Package className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">Build Plan</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => setIsEditing(true)}
                     size="sm"
                   >
                     <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
+                    <span className="hidden sm:inline">Edit</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -130,7 +141,7 @@ export function IdeaDetailHeader({ idea, onUpdate, onDelete, onError }: IdeaDeta
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
+                    <span className="hidden sm:inline">Delete</span>
                   </Button>
                 </>
               )}

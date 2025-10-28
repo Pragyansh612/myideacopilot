@@ -10,10 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/empty-state"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2, Network, Trash2 } from "lucide-react"
+import { Plus, Search, Calendar, Tag, Grid, List, MoreHorizontal, Lightbulb, Loader2, Network, Trash2, Package } from "lucide-react"
 import Link from "next/link"
 import { IdeaAPI, CategoryAPI, type Idea, type Category, type PriorityEnum, type StatusEnum } from "@/lib/api/idea"
 import { useRouter } from "next/navigation"
+import { AutoDetectionBanner } from "@/components/ideas/auto-detection-banner"
 
 export default function IdeasPage() {
   const router = useRouter()
@@ -95,9 +96,19 @@ export default function IdeasPage() {
             asChild
             className="transition-all duration-300 hover:border-primary/50"
           >
+            <Link href="/dashboard/build-plan">
+              <Package className="w-4 h-4 mr-2" />
+              Build Plan
+            </Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            asChild
+            className="transition-all duration-300 hover:border-primary/50"
+          >
             <Link href="/dashboard/ideas/network">
               <Network className="w-4 h-4 mr-2" />
-              View Network
+              Network
             </Link>
           </Button>
           <Button asChild className="gradient-primary hover:glow-primary transition-all duration-300">
@@ -115,6 +126,9 @@ export default function IdeasPage() {
             {error}
           </div>
         )}
+
+        {/* Auto-Detection Banner - Show only when user has 2+ ideas */}
+        {!isLoading && ideas.length >= 2 && <AutoDetectionBanner />}
 
         {isLoading ? (
           <>
